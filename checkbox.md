@@ -1,4 +1,4 @@
-# SupplyChain Orchestrator — Project Progress Tracker
+﻿# SupplyChain Orchestrator — Project Progress Tracker
 
 > An Explainable Agentic AI Platform for Supply Chain Risk and Recovery
 > Last updated: Session 8 — Stage 6 Agent & RAG Layer complete
@@ -16,7 +16,7 @@
 | 4     | Graph & Risk Analysis       | ✅ Done           |
 | 5     | Recovery Planning           | ✅ Done           |
 | 6     | Agent & RAG Layer           | ✅ Done           |
-| 7     | API & UI                    | ⬜ Not Started    |
+| 7     | API & UI                    | 🔄 Mostly Done    |
 | 8     | Evaluation & Hardening      | ⬜ Not Started    |
 | 9     | Portfolio Release           | ⬜ Not Started    |
 
@@ -129,16 +129,20 @@
 
 ---
 
-## 🔲 Stage 7 — API & UI
+## 🔄 Stage 7 — API & UI (Mostly Done)
 
-- [ ] Build FastAPI endpoints (events, inventory, impact, scenarios, recommendations, review)
-- [ ] Build Streamlit UI (risk dashboard, disruption entry, evidence view, approval controls)
-- [ ] Connect UI → API → core engine
-- [ ] Add scenario comparison view (what-if simulator)
-- [ ] Validate UI with all example scenarios
+- [x] Split approval out of the LangGraph workflow: run_analysis() (no input) + submit_decision() in agents/decision.py
+- [x] Approval is explicit: no default "yes", name + rationale required, option must be feasible
+- [x] FastAPI endpoints: /health, /events, /events/{id}, /events/{id}/analyze, /events/{id}/decision, /decisions, /inventory/{part_id}
+- [x] 15 integration tests passing (Gemini faked, audit log write captured -- real DB not polluted)
+- [x] Streamlit UI (app/main.py): impact, options, graph, evidence, AI explanation, decision form, audit log
+- [x] UI -> API -> core engine connected; UI verified with Streamlit AppTest against live API
+- [x] git repo initialised (keys.md and understand.md are git-ignored: they contain secrets / chat export)
+- [ ] Scenario comparison view (what-if simulator) -- NOT done: needs new scenario data + endpoint
+- [ ] Validate UI with more than one scenario -- only EVT-001 exists in the data
+- [ ] Verify graph tab + real Gemini explanation in the UI (Neo4j was offline and Gemini returned 503 during testing)
 
 ---
-
 ## 🔲 Stage 8 — Evaluation & Hardening
 
 - [ ] Build evaluation harness with labeled test cases
