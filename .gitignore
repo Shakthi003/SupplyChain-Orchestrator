@@ -31,3 +31,6 @@ Thumbs.db
 # Files containing pasted secrets / chat exports -- NEVER commit
 keys.md
 understand.md
+
+# Local server logs
+*.log
