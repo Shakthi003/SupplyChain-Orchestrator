@@ -26,12 +26,7 @@ Pipeline:
   generate_explanation
        |
        v
-  await_approval
-       |
-       |--(approved)--> save_decision --> END
-       |
-       |--(rejected)--> save_decision --> END
-       (both paths save to audit log -- rejections are also logged)
+  END   (the human decision is a separate step: agents/decision.py)
 
 Why LangGraph?
   Regular Python would work for a linear pipeline.
@@ -56,8 +51,6 @@ from agents.nodes import (
     fetch_graph,
     fetch_documents,
     generate_explanation,
-    await_approval,
-    save_decision_node
 )
 
 
@@ -99,8 +92,6 @@ def build_workflow():
     graph.add_node("fetch_graph",           fetch_graph)
     graph.add_node("fetch_documents",       fetch_documents)
     graph.add_node("generate_explanation",  generate_explanation)
-    graph.add_node("await_approval",        await_approval)
-    graph.add_node("save_decision",         save_decision_node)
 
     # --- Define the entry point ---
     graph.set_entry_point("validate_event")
@@ -117,16 +108,12 @@ def build_workflow():
         }
     )
 
-    # Linear pipeline from impact through to approval
+    # Linear pipeline from impact through to the explanation
     graph.add_edge("run_impact",           "run_planning")
     graph.add_edge("run_planning",         "fetch_graph")
     graph.add_edge("fetch_graph",          "fetch_documents")
     graph.add_edge("fetch_documents",      "generate_explanation")
-    graph.add_edge("generate_explanation", "await_approval")
-
-    # After approval: always save (both approved and rejected are logged)
-    graph.add_edge("await_approval",       "save_decision")
-    graph.add_edge("save_decision",        END)
+    graph.add_edge("generate_explanation", END)
 
     # --- Compile and return ---
     app = graph.compile()

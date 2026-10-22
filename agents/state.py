@@ -33,8 +33,8 @@ class AgentState(TypedDict):
       After fetch_graph:         graph_result
       After fetch_documents:     documents_result
       After generate_explanation: explanation
-      After await_approval:      approved, reviewer_name, rationale, chosen_option_id
-      After save_decision:       decision_saved, decision_id
+
+    The human decision is NOT part of this state -- see agents/decision.py.
     """
 
     # --- Input ---
@@ -61,16 +61,6 @@ class AgentState(TypedDict):
 
     # --- Set by generate_explanation node (calls Gemini) ---
     explanation: str                       # Full plain English explanation from LLM
-
-    # --- Set by await_approval node (human input) ---
-    approved: Optional[bool]               # True = approved, False = rejected, None = pending
-    reviewer_name: str                     # Who approved/rejected
-    rationale: str                         # Why they made this decision
-    chosen_option_id: str                  # Which option they chose (may differ from recommended)
-
-    # --- Set by save_decision node (calls tools/audit_tool.py) ---
-    decision_saved: bool                   # True if successfully saved to DB
-    decision_id: Optional[int]            # The auto-generated ID from decision_log table
 
     # --- Error tracking ---
     error: Optional[str]                   # Set if any node encounters an error
