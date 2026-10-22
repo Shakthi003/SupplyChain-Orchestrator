@@ -17,8 +17,8 @@ Node execution order (defined in workflow.py):
   4. fetch_graph           -- show the impact chain
   5. fetch_documents       -- find relevant contracts and policies
   6. generate_explanation  -- Gemini writes the full explanation
-  7. await_approval        -- human reviews and decides
-  8. save_decision         -- log the decision permanently
+
+(The human approval + audit logging step lives in agents/decision.py.)
 
 Each node prints what it is doing so you can watch the workflow live.
 """
@@ -37,7 +37,6 @@ from tools.impact_tool import run_impact_analysis_tool
 from tools.planning_tool import run_recovery_planning_tool
 from tools.graph_tool import get_impact_chain_tool, get_spare_stock_tool
 from tools.retrieval_tool import get_supporting_documents
-from tools.audit_tool import save_decision
 
 from google import genai
 
@@ -424,141 +423,3 @@ Structure it as:
         print(f"  [WARN] Gemini call failed: {e}")
         print(f"  Using fallback summary.")
         return {"explanation": fallback, "error": None}
-
-
-# ---------------------------------------------------------------------------
-# NODE 7: await_approval
-# Prints the full explanation and waits for the human to approve or reject
-# ---------------------------------------------------------------------------
-
-def await_approval(state: dict) -> dict:
-    """
-    Step 7: Present findings to the human reviewer and wait for decision.
-
-    This is the HUMAN-IN-THE-LOOP gate.
-    The workflow PAUSES here until a human types their decision.
-
-    In Stage 7 (UI), this will be a button click in Streamlit.
-    For now, it's a terminal prompt.
-    """
-    print("\n" + "=" * 65)
-    print("  AGENT STEP 7: Human Approval Required")
-    print("=" * 65)
-
-    planning = state.get("planning_result", {})
-    recommended = planning.get("recommended_option_id", "OPT-A")
-    options = planning.get("options", [])
-
-    # Print the full AI explanation
-    print("\n  --- AI ANALYSIS AND RECOMMENDATION ---\n")
-    explanation = state.get("explanation", "No explanation generated.")
-    for line in explanation.split("\n"):
-        print(f"  {line}")
-
-    # Show options summary
-    print("\n\n  --- RECOVERY OPTIONS SUMMARY ---")
-    for opt in options:
-        rank_str = f"#{opt['rank']}" if opt["rank"] > 0 else "-"
-        status_str = "OK" if opt["status"] == "feasible" else "NO"
-        print(f"  [{status_str}] Rank {rank_str} | {opt['option_id']} | {opt['title']}")
-        print(f"       Score: {opt['score']:.1f}/100  |  Cost: ${opt['cost']:,.2f}")
-
-    print(f"\n  System recommendation: {recommended}")
-
-    # --- Get human input ---
-    print("\n" + "-" * 65)
-    print("  YOUR DECISION REQUIRED")
-    print("-" * 65)
-
-    # Get reviewer name
-    print("\n  Enter your name (reviewer): ", end="", flush=True)
-    reviewer_name = input().strip()
-    if not reviewer_name:
-        reviewer_name = "Anonymous Reviewer"
-
-    # Show available option IDs
-    feasible_ids = [o["option_id"] for o in options if o["status"] == "feasible"]
-    print(f"\n  Available options: {feasible_ids}")
-    print(f"  Recommended      : {recommended}")
-    print(f"\n  Which option do you choose? (press Enter to accept recommendation): ", end="", flush=True)
-    chosen_raw = input().strip().upper()
-    chosen_option_id = chosen_raw if chosen_raw in feasible_ids else recommended
-
-    # Approve or reject
-    print(f"\n  Approve this decision? (y/n): ", end="", flush=True)
-    approval_raw = input().strip().lower()
-    approved = approval_raw in ("y", "yes", "")
-
-    # Get rationale
-    print(f"\n  Briefly explain your decision (reason): ", end="", flush=True)
-    rationale = input().strip()
-    if not rationale:
-        rationale = f"Approved recommended option {chosen_option_id}. No additional notes."
-
-    print(f"\n  Decision recorded:")
-    print(f"    Reviewer : {reviewer_name}")
-    print(f"    Option   : {chosen_option_id}")
-    print(f"    Approved : {'YES' if approved else 'NO'}")
-    print(f"    Reason   : {rationale}")
-
-    return {
-        "approved":        approved,
-        "reviewer_name":   reviewer_name,
-        "chosen_option_id": chosen_option_id,
-        "rationale":       rationale,
-        "error":           None
-    }
-
-
-# ---------------------------------------------------------------------------
-# NODE 8: save_decision
-# Saves the human's decision to the PostgreSQL audit log
-# ---------------------------------------------------------------------------
-
-def save_decision_node(state: dict) -> dict:
-    """
-    Step 8: Permanently save the decision to the audit log.
-    This is the final node. After this, the workflow ends.
-    """
-    print("\n" + "=" * 65)
-    print("  AGENT STEP 8: Saving decision to audit log...")
-    print("=" * 65)
-
-    impact   = state.get("impact_result", {})
-    planning = state.get("planning_result", {})
-
-    # Find the cost of the chosen option
-    chosen_id = state.get("chosen_option_id", "")
-    chosen_cost = 0.0
-    for opt in planning.get("options", []):
-        if opt["option_id"] == chosen_id:
-            chosen_cost = opt["cost"]
-            break
-
-    result = save_decision(
-        event_id=state["event_id"],
-        recommended_option_id=planning.get("recommended_option_id", ""),
-        chosen_option_id=state.get("chosen_option_id", ""),
-        approved=state.get("approved", False),
-        reviewer_name=state.get("reviewer_name", "Unknown"),
-        rationale=state.get("rationale", ""),
-        financial_exposure=impact.get("total_exposure", 0.0),
-        estimated_cost=chosen_cost
-    )
-
-    if result.get("error"):
-        print(f"  [ERROR] Failed to save decision: {result['error']}")
-        return {"decision_saved": False, "decision_id": None, "error": result["error"]}
-
-    print(f"  [OK] Decision saved to database.")
-    print(f"  Decision ID      : {result['decision_id']}")
-    print(f"  Event            : {state['event_id']}")
-    print(f"  Chosen option    : {state.get('chosen_option_id', 'N/A')}")
-    print(f"  Approved         : {'YES' if state.get('approved') else 'NO'}")
-    print(f"  Reviewer         : {state.get('reviewer_name', 'N/A')}")
-
-    return {
-        "decision_saved": True,
-        "decision_id":    result["decision_id"],
-        "error":          None
-    }
