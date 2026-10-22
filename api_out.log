@@ -1,0 +1,213 @@
+INFO:     127.0.0.1:63310 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54845 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53657 - "GET /events HTTP/1.1" 200 OK
+
+=================================================================
+  AGENT STEP 1: Validating disruption event...
+=================================================================
+  Event ID  : EVT-001
+  Type      : supplier_delay
+  Severity  : high
+  Part      : PRT-104 (Hydraulic Valve C-104)
+  Supplier  : SUP-005 (Apex Hydraulics Ltd)
+  Delay     : 4 days
+  [OK] Event validated.
+
+=================================================================
+  AGENT STEP 2: Running impact analysis...
+=================================================================
+  Part              : PRT-104 (Hydraulic Valve C-104)
+  Supplier          : SUP-005 (Apex Hydraulics Ltd)
+  Delay             : 4 days
+  Stock available   : 95 units
+  Coverage          : 11.1 days
+  Has shortage      : False
+  At-risk prod orders: 1
+  At-risk cust orders: 1
+  Financial exposure : $20,300.00
+  [OK] Impact analysis complete.
+
+=================================================================
+  AGENT STEP 3: Running recovery planning...
+=================================================================
+  Options generated : 4
+  Feasible options  : 4
+  Cost of inaction  : $4,800.00
+  Recommended       : OPT-A
+
+  [FEASIBLE]   Rank #1 | OPT-A | Use Available Stock
+             Score: 99.0  Cost: $0.00
+  [FEASIBLE]   Rank #2 | OPT-B1 | Transfer Stock from WH-02
+             Score: 76.4  Cost: $350.00
+  [FEASIBLE]   Rank #3 | OPT-C1 | Expedite Shipment SHP-441
+             Score: 30.4  Cost: $1,250.00
+  [FEASIBLE]   Rank #4 | OPT-D1 | Buy from Delta Components LLC
+             Score: 24.3  Cost: $1,060.00
+
+  [OK] Recovery planning complete.
+
+=================================================================
+  AGENT STEP 4: Fetching impact chain from graph...
+=================================================================
+Graph query failed: Couldn't connect to 127.0.0.1:7687 (resolved to ('127.0.0.1:7687',)):
+Failed to establish connection to ResolvedIPv4Address(('127.0.0.1', 7687)) (reason [WinError 10061] No connection could be made because the target machine actively refused it)
+
+Graph query failed: Couldn't connect to 127.0.0.1:7687 (resolved to ('127.0.0.1:7687',)):
+Failed to establish connection to ResolvedIPv4Address(('127.0.0.1', 7687)) (reason [WinError 10061] No connection could be made because the target machine actively refused it)
+
+  [OK] Graph queries complete.
+
+=================================================================
+  AGENT STEP 5: Fetching supporting documents (RAG)...
+=================================================================
+  Sources retrieved: ['DECISION-2024-003', 'POLICY-PROCUREMENT-001', 'POLICY-LOGISTICS-001', 'CONTRACT-SUP-005']
+  [OK] Documents retrieved.
+
+=================================================================
+  AGENT STEP 6: Generating AI explanation (Gemini)...
+=================================================================
+  [WARN] Gemini call failed: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+  Using fallback summary.
+INFO:     127.0.0.1:53657 - "POST /events/EVT-001/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56499 - "GET /events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56502 - "GET /events HTTP/1.1" 200 OK
+
+=================================================================
+  AGENT STEP 1: Validating disruption event...
+=================================================================
+  Event ID  : EVT-001
+  Type      : supplier_delay
+  Severity  : high
+  Part      : PRT-104 (Hydraulic Valve C-104)
+  Supplier  : SUP-005 (Apex Hydraulics Ltd)
+  Delay     : 4 days
+  [OK] Event validated.
+
+=================================================================
+  AGENT STEP 2: Running impact analysis...
+=================================================================
+  Part              : PRT-104 (Hydraulic Valve C-104)
+  Supplier          : SUP-005 (Apex Hydraulics Ltd)
+  Delay             : 4 days
+  Stock available   : 95 units
+  Coverage          : 11.1 days
+  Has shortage      : False
+  At-risk prod orders: 1
+  At-risk cust orders: 1
+  Financial exposure : $20,300.00
+  [OK] Impact analysis complete.
+
+=================================================================
+  AGENT STEP 3: Running recovery planning...
+=================================================================
+  Options generated : 4
+  Feasible options  : 4
+  Cost of inaction  : $4,800.00
+  Recommended       : OPT-A
+
+  [FEASIBLE]   Rank #1 | OPT-A | Use Available Stock
+             Score: 99.0  Cost: $0.00
+  [FEASIBLE]   Rank #2 | OPT-B1 | Transfer Stock from WH-02
+             Score: 76.4  Cost: $350.00
+  [FEASIBLE]   Rank #3 | OPT-C1 | Expedite Shipment SHP-441
+             Score: 30.4  Cost: $1,250.00
+  [FEASIBLE]   Rank #4 | OPT-D1 | Buy from Delta Components LLC
+             Score: 24.3  Cost: $1,060.00
+
+  [OK] Recovery planning complete.
+
+=================================================================
+  AGENT STEP 4: Fetching impact chain from graph...
+=================================================================
+Graph query failed: Couldn't connect to 127.0.0.1:7687 (resolved to ('127.0.0.1:7687',)):
+Failed to establish connection to ResolvedIPv4Address(('127.0.0.1', 7687)) (reason [WinError 10061] No connection could be made because the target machine actively refused it)
+
+Graph query failed: Couldn't connect to 127.0.0.1:7687 (resolved to ('127.0.0.1:7687',)):
+Failed to establish connection to ResolvedIPv4Address(('127.0.0.1', 7687)) (reason [WinError 10061] No connection could be made because the target machine actively refused it)
+
+  [OK] Graph queries complete.
+
+=================================================================
+  AGENT STEP 5: Fetching supporting documents (RAG)...
+=================================================================
+  Sources retrieved: ['DECISION-2024-003', 'POLICY-PROCUREMENT-001', 'POLICY-LOGISTICS-001', 'CONTRACT-SUP-005']
+  [OK] Documents retrieved.
+
+=================================================================
+  AGENT STEP 6: Generating AI explanation (Gemini)...
+=================================================================
+  [WARN] Gemini call failed: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+  Using fallback summary.
+INFO:     127.0.0.1:56503 - "POST /events/EVT-001/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52836 - "GET /decisions?event_id=EVT-001 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53509 - "GET /events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53512 - "GET /events HTTP/1.1" 200 OK
+
+=================================================================
+  AGENT STEP 1: Validating disruption event...
+=================================================================
+  Event ID  : EVT-001
+  Type      : supplier_delay
+  Severity  : high
+  Part      : PRT-104 (Hydraulic Valve C-104)
+  Supplier  : SUP-005 (Apex Hydraulics Ltd)
+  Delay     : 4 days
+  [OK] Event validated.
+
+=================================================================
+  AGENT STEP 2: Running impact analysis...
+=================================================================
+  Part              : PRT-104 (Hydraulic Valve C-104)
+  Supplier          : SUP-005 (Apex Hydraulics Ltd)
+  Delay             : 4 days
+  Stock available   : 95 units
+  Coverage          : 11.1 days
+  Has shortage      : False
+  At-risk prod orders: 1
+  At-risk cust orders: 1
+  Financial exposure : $20,300.00
+  [OK] Impact analysis complete.
+
+=================================================================
+  AGENT STEP 3: Running recovery planning...
+=================================================================
+  Options generated : 4
+  Feasible options  : 4
+  Cost of inaction  : $4,800.00
+  Recommended       : OPT-A
+
+  [FEASIBLE]   Rank #1 | OPT-A | Use Available Stock
+             Score: 99.0  Cost: $0.00
+  [FEASIBLE]   Rank #2 | OPT-B1 | Transfer Stock from WH-02
+             Score: 76.4  Cost: $350.00
+  [FEASIBLE]   Rank #3 | OPT-C1 | Expedite Shipment SHP-441
+             Score: 30.4  Cost: $1,250.00
+  [FEASIBLE]   Rank #4 | OPT-D1 | Buy from Delta Components LLC
+             Score: 24.3  Cost: $1,060.00
+
+  [OK] Recovery planning complete.
+
+=================================================================
+  AGENT STEP 4: Fetching impact chain from graph...
+=================================================================
+Graph query failed: Couldn't connect to 127.0.0.1:7687 (resolved to ('127.0.0.1:7687',)):
+Failed to establish connection to ResolvedIPv4Address(('127.0.0.1', 7687)) (reason [WinError 10061] No connection could be made because the target machine actively refused it)
+
+Graph query failed: Couldn't connect to 127.0.0.1:7687 (resolved to ('127.0.0.1:7687',)):
+Failed to establish connection to ResolvedIPv4Address(('127.0.0.1', 7687)) (reason [WinError 10061] No connection could be made because the target machine actively refused it)
+
+  [OK] Graph queries complete.
+
+=================================================================
+  AGENT STEP 5: Fetching supporting documents (RAG)...
+=================================================================
+  Sources retrieved: ['DECISION-2024-003', 'POLICY-PROCUREMENT-001', 'POLICY-LOGISTICS-001', 'CONTRACT-SUP-005']
+  [OK] Documents retrieved.
+
+=================================================================
+  AGENT STEP 6: Generating AI explanation (Gemini)...
+=================================================================
+  [WARN] Gemini call failed: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+  Using fallback summary.
+INFO:     127.0.0.1:53513 - "POST /events/EVT-001/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56746 - "GET /decisions?event_id=EVT-001 HTTP/1.1" 200 OK

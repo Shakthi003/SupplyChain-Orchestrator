@@ -1,4 +1,4 @@
-# SupplyChain Orchestrator
+﻿# SupplyChain Orchestrator
 
 > An Explainable Agentic AI Platform for Supply Chain Risk and Recovery
 
@@ -23,7 +23,7 @@ When a supplier is delayed, this platform:
 | Relational DB | PostgreSQL 16 |
 | Graph DB | Neo4j Desktop |
 | Vector Store | ChromaDB |
-| LLM | Gemini 1.5 Flash (free tier) |
+| LLM | Gemini (free tier; model set in core/config.py) |
 | Agent Orchestration | LangGraph + LangChain |
 | Optimization | OR-Tools |
 
@@ -31,27 +31,27 @@ When a supplier is delayed, this platform:
 
 ```
 supplychain-orchestrator/
-├── app/                    # Streamlit UI
-├── api/                    # FastAPI routes and schemas
-├── core/
-│   ├── impact_analysis/    # Inventory coverage and dependency impact
-│   ├── forecasting/        # Demand and risk models
-│   ├── optimization/       # Recovery planning and constraints
-│   └── rules/              # Deterministic business rules
-├── agents/                 # LangGraph workflows and tool routing
-├── retrieval/              # Document ingestion, indexing, RAG
-├── graph/                  # Neo4j schema and graph queries
-├── tools/                  # MCP tools and service adapters
-├── data/
-│   ├── synthetic/          # Generated demo data
-│   └── scenarios/          # Known disruption test cases
-├── evaluation/             # Metrics, baselines, scenario tests
-├── tests/                  # Unit, integration, and workflow tests
-├── docs/                   # Architecture, decisions, diagrams
-├── scripts/                # Data generation and local setup
-├── pyproject.toml
-├── .env.example
-└── README.md
+â”œâ”€â”€ app/                    # Streamlit UI
+â”œâ”€â”€ api/                    # FastAPI routes and schemas
+â”œâ”€â”€ core/
+â”‚   â”œâ”€â”€ impact_analysis/    # Inventory coverage and dependency impact
+â”‚   â”œâ”€â”€ forecasting/        # Demand and risk models
+â”‚   â”œâ”€â”€ optimization/       # Recovery planning and constraints
+â”‚   â””â”€â”€ rules/              # Deterministic business rules
+â”œâ”€â”€ agents/                 # LangGraph workflows and tool routing
+â”œâ”€â”€ retrieval/              # Document ingestion, indexing, RAG
+â”œâ”€â”€ graph/                  # Neo4j schema and graph queries
+â”œâ”€â”€ tools/                  # MCP tools and service adapters
+â”œâ”€â”€ data/
+â”‚   â”œâ”€â”€ synthetic/          # Generated demo data
+â”‚   â””â”€â”€ scenarios/          # Known disruption test cases
+â”œâ”€â”€ evaluation/             # Metrics, baselines, scenario tests
+â”œâ”€â”€ tests/                  # Unit, integration, and workflow tests
+â”œâ”€â”€ docs/                   # Architecture, decisions, diagrams
+â”œâ”€â”€ scripts/                # Data generation and local setup
+â”œâ”€â”€ pyproject.toml
+â”œâ”€â”€ .env.example
+â””â”€â”€ README.md
 ```
 
 ## Setup Instructions
@@ -77,12 +77,15 @@ cp .env.example .env
 
 ### 4. Run
 ```bash
-# API
+# API (terminal 1; first start takes ~30s to load the embedding model)
 uv run uvicorn api.main:app --reload
 
-# UI
+# UI (terminal 2)
 uv run streamlit run app/main.py
+
+# Tests
+uv run pytest tests
 ```
 
 ## Status
-🚧 Under active development — prototype stage
+ðŸš§ Under active development â€” prototype stage
