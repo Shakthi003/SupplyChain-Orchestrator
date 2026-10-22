@@ -1,0 +1,57 @@
+1. Supply-chain data
+Create realistic data for suppliers, inventory, purchase orders, bills of materials (BOMs), production orders, and customer deliveries.
+Tools: Python, Pandas, PostgreSQL
+
+
+
+2. Disruption detection
+Detect supplier delays, shipment changes, and other risk events. Validate the event and determine whether it could cause a real shortage.
+Tools: Python, FastAPI, business rules
+
+
+
+3. Dependency impact analysis
+Trace affected components through BOMs, inventory, production orders, and customer commitments.
+Tools: Neo4j GraphDB, Cypher
+
+
+
+4. Predictive ML
+Forecast demand, estimate stockout risk, and assess supplier delay risk using historical and simulated data.
+Tools: Python, Pandas, scikit-learn, forecasting libraries
+
+
+
+5. RAG and business knowledge
+Retrieve supplier contracts, procurement policies, approved alternatives, and operational procedures to support recommendations with evidence.
+Tools: LangChain, embeddings, vector database, reranking
+
+
+
+6. Agentic AI workflow
+Use specialized workflow steps to investigate the disruption, gather evidence, assess risks, and coordinate recovery planning.
+Tools: LangGraph, LLMs, structured tool calls
+
+
+
+7. Recovery optimization
+Compare using existing stock, transferring inventory, expediting shipments, and sourcing from approved suppliers. Rank feasible options by cost, time, and customer impact.
+Tools: Python, OR-Tools, deterministic constraints
+
+
+
+8. MCP tool integration
+Expose controlled tools for reading inventory, checking orders, running analyses, and preparing proposed actions.
+Tools: MCP servers and clients
+
+
+
+9. API and user interface
+Build an interface where users can view alerts, investigate affected orders, ask questions, compare recovery options, and approve or reject recommendations.
+Tools: FastAPI, Streamlit
+
+
+
+10. Testing and deployment
+Test the system against known scenarios, measure accuracy and recovery feasibility, add logging and error handling, and deploy the application.
+Tools: Pytest, Docker, GitHub, evaluation metrics
