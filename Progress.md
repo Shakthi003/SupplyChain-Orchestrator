@@ -525,7 +525,7 @@ The pipeline continues to completion regardless.
 - Fixed a real bug: results changed from day to day because the code read the computer clock
 - Investigated Gemini timeouts (504/503 errors)
 
-Status: **mostly done**. The what-if simulator is not built yet.
+Status: **mostly done**. The what-if simulator was dropped by decision and will not be built.
 
 ### Why approval moved out of the workflow
 
@@ -578,7 +578,7 @@ Verified:
 Not verified or not done:
 - Only one scenario exists (EVT-001), so the UI has never been tried on a second event.
 - The Gemini explanation works only some of the time (see below).
-- The what-if simulator (scenario comparison) is not built.
+- The what-if simulator (scenario comparison) was dropped by decision.
 
 ### Bugs found and fixed
 
@@ -628,7 +628,7 @@ Same data in, same answer out only holds if the date is also an input.
 
 ### Still to do for Stage 7
 
-- [ ] What-if simulator (needs a second scenario and a new endpoint)
+- [x] What-if simulator: dropped by decision, not building it
 - [ ] Test the UI on more than one event
 - [ ] Decide how to handle Gemini 504s (per-attempt limit or a different model)
 - [ ] Restart uvicorn so it runs the latest code

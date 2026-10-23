@@ -140,7 +140,7 @@
 - [x] Fixed date drift: all calculations now use one "as of" date (the event's detected_at, core/clock.py) instead of the live clock. Engine self-check passes again (13.1 days coverage); 16 tests pass
 
 - [x] git repo initialised (keys.md and understand.md are git-ignored: they contain secrets / chat export)
-- [ ] Scenario comparison view (what-if simulator) -- NOT done: needs new scenario data + endpoint
+- [-] Scenario comparison view (what-if simulator) -- dropped by the user's decision, will not be built
 - [ ] Validate UI with more than one scenario -- only EVT-001 exists in the data
 - [ ] Verify graph tab + real Gemini explanation in the UI (Neo4j was offline and Gemini returned 503 during testing)
 
