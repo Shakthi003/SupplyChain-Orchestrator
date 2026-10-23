@@ -14,6 +14,7 @@
         "exposure": 0.0,
         "recommended_option": "OPT-A",
         "infeasible_options": [],
+        "partial_options": {},
         "evidence_docs": ["CONTRACT-SUP-005"],
         "evidence_phrases": ["Delay 4-7 days: 5%"]
       },
@@ -37,6 +38,7 @@
         "exposure": 10750.0,
         "recommended_option": "OPT-D1",
         "infeasible_options": ["OPT-A", "OPT-C1"],
+        "partial_options": {"OPT-D1": 2},
         "evidence_docs": ["CONTRACT-SUP-004"],
         "evidence_phrases": ["Delay 8-14 days: 3%"]
       },
@@ -46,7 +48,9 @@
         "Day-by-day: cumulative use reaches exactly 180 at the end of Nov 3, so the first day demand cannot be met is Nov 4. Revised ETA is Nov 18, so the gap is real.",
         "Only PRD-305 is short (its last day needs 10 units, 0 left). It links to customer order CO-505 ($10,750).",
         "Using stock (OPT-A) cannot cover a 190-unit need with 180 units, so it is infeasible. Expediting the late shipment (OPT-C1) saves only a few days of a 14-day delay, so it still lands after the Nov 4 stock-out: infeasible. The only remaining supply source is an alternate supplier (OPT-D1). (First draft of this label forgot OPT-C1; corrected after the first run, by this reasoning, not by copying engine output.)",
-        "Contract: SUP-004, a 14-day delay falls in the 'Delay 8-14 days: 3%' band."
+        "Contract: SUP-004, a 14-day delay falls in the 'Delay 8-14 days: 3%' band.",
+        "Timing of OPT-D1 (added after the first --with-llm run, derived from dates not from engine output): Bosch lead time is 14 days from Oct 23 = Nov 6. The first unmet day is Nov 4 (derivation above). So Bosch lands about 2 days AFTER stock runs out: it shortens the shortage from 14 days to about 2, but does not prevent it. The label is therefore 'feasible but partial, about 2 days still short' (engine uses a Nov 3 stock-out, so it reports about 3; the 1-day tolerance covers that known convention difference).",
+        "EVT-001 has no real shortage (shipment lands Oct 30, before PRD-306 starts Nov 4), so no option can be 'late': no partial options expected."
       ]
     }
   ]

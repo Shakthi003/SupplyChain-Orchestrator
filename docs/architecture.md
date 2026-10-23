@@ -102,7 +102,7 @@ Step 5 was wrong until the evaluation harness exposed it (shipments were ignored
 
 ## Recovery options
 
-Four types are generated: use existing stock, transfer between warehouses, expedite the late shipment, and buy from an alternate supplier. Each goes through feasibility checks (for example, expediting must land before the stock-out date), then costing, then scoring. Infeasible options are returned and shown, with the reason, but never recommended.
+Four types are generated: use existing stock, transfer between warehouses, expedite the late shipment, and buy from an alternate supplier. Each goes through feasibility checks (for example, expediting must land before the stock-out date), then costing, then scoring. Infeasible options are returned and shown, with the reason, but never recommended. An alternate supplier that arrives after the stock-out stays feasible but is flagged PARTIAL (`fully_closes_gap = false`, `residual_gap_days`), so neither the UI nor the AI can claim it prevents the shortage. The planner also returns the list of assumptions from `core/assumptions.py`.
 
 ## Data stores
 

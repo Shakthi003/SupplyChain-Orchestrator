@@ -343,9 +343,16 @@ def generate_explanation(state: dict) -> dict:
     options_text = ""
     for opt in options:
         tag = " <-- RECOMMENDED" if opt["option_id"] == recommended else ""
+        if opt["status"] != "feasible":
+            rank_text = "NOT RANKED (infeasible)"
+        else:
+            rank_text = f"Rank: #{opt['rank']}  Score: {opt['score']:.1f}/100"
+        if opt["status"] == "feasible" and not opt.get("fully_closes_gap", True):
+            tag += (f" [PARTIAL: arrives after stock runs out; about "
+                    f"{opt['residual_gap_days']:.1f} days of shortage remain]")
         options_text += (
             f"\n  {opt['option_id']} | {opt['title']}{tag}"
-            f"\n    Rank: #{opt['rank']}  Score: {opt['score']:.1f}/100  Cost: ${opt['cost']:,.2f}"
+            f"\n    {rank_text}  Cost: ${opt['cost']:,.2f}"
             f"\n    {opt['description'][:200]}"
             f"\n    Feasibility: {opt['feasibility_note'][:150]}"
         )
@@ -374,6 +381,9 @@ IMPORTANT RULES:
 - Be concise but complete. Maximum 400 words.
 - Use plain English. Avoid jargon.
 - End with a clear recommendation statement.
+- If an option is marked PARTIAL, say it only shortens the shortage and does NOT prevent it. Never say it "prevents", "bridges" or "eliminates" the shortage.
+- Do not print "Rank #0"; infeasible options are simply not ranked.
+- End the briefing with one line starting "Assumptions:" that restates the stock-allocation rule from the ASSUMPTIONS section.
 
 === DISRUPTION EVENT ===
 Event ID     : {event_id}
@@ -403,6 +413,9 @@ Total financial exposure: ${impact.get('total_exposure', 0):,.2f}
 {options_text}
 
 Cost of doing nothing: ${planning.get('doing_nothing_cost', 0):,.2f}
+
+=== ASSUMPTIONS ===
+{chr(10).join('- ' + a for a in planning.get('assumptions', []))}
 
 === SUPPORTING DOCUMENTS (cite these) ===
 {docs.get('combined_context', 'No documents retrieved.')[:1500]}

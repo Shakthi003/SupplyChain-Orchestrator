@@ -311,12 +311,17 @@ with tab_opts:
     options = plan.get("options", [])
     rec_id = plan.get("recommended_option_id")
     st.caption("Every figure below comes from the deterministic planner. Infeasible options are shown muted.")
-    for o in sorted(options, key=lambda x: x.get("rank", 99)):
+    for o in sorted(options, key=lambda x: (x.get("rank", 0) or 99)):
         feasible = o.get("status") == "feasible"
         is_rec = o["option_id"] == rec_id
         cls = "rec" if is_rec else ("" if feasible else "no")
-        chips = ('<span class="sc-chip rec">RECOMMENDED</span>' if is_rec else "") + \
-                (f'<span class="sc-chip {"ok" if feasible else "no"}">{h(o.get("status", "").upper())}</span>')
+        partial = feasible and not o.get("fully_closes_gap", True)
+        chips = ('<span class="sc-chip rec">RECOMMENDED</span>' if is_rec else "")
+        if partial:
+            chips += (f'<span class="sc-chip part">PARTIAL - {o.get("residual_gap_days", 0):.1f} DAYS '
+                      f'STILL SHORT</span>')
+        else:
+            chips += f'<span class="sc-chip {"ok" if feasible else "no"}">{h(o.get("status", "").upper())}</span>'
         score = max(0, min(float(o.get("score", 0)), 100))
         rows = ""
         for lab, key in [("Description", "description"), ("Feasibility", "feasibility_note"),
@@ -324,12 +329,16 @@ with tab_opts:
             if o.get(key):
                 rows += f"<p><b>{lab}:</b> {h(o[key])}</p>"
         html(f'<div class="sc-opt {cls}"><div class="top">'
-             f'<div class="sc-rank">{h(o.get("rank", "-"))}</div>'
+             f'<div class="sc-rank">{h(o.get("rank") or "-")}</div>'
              f'<div><div class="ttl">{h(o.get("title", ""))}{chips}</div>'
              f'<div class="id">{h(o["option_id"])}</div></div>'
              f'<div class="stats"><div><div class="k">Cost</div><div class="v">{h(money(o.get("cost", 0)))}</div></div>'
              f'<div><div class="k">Score</div><div class="v">{score:.1f}</div></div></div></div>'
              f'<div class="sc-bar"><span style="width:{score:.0f}%"></span></div>{rows}</div>')
+    if plan.get("assumptions"):
+        with st.expander("Assumptions behind these numbers"):
+            for a in plan["assumptions"]:
+                st.write(f"- {md(a)}")
 
 # --- Impact chain (graph) -------------------------------------------------------
 with tab_graph:

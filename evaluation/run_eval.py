@@ -72,6 +72,15 @@ def evaluate_case(case: dict, tol_days: int, with_llm: bool) -> dict:
     infeasible = sorted(o["option_id"] for o in plan.get("options", []) if o["status"] != "feasible")
     row["recommended_correct"] = plan.get("recommended_option_id") == exp["recommended_option"]
     row["infeasible_correct"] = infeasible == sorted(exp["infeasible_options"])
+    # Options that are feasible but arrive after the stock-out, with their leftover shortage.
+    partial = {o["option_id"]: o["residual_gap_days"] for o in plan.get("options", [])
+               if o["status"] == "feasible" and not o.get("fully_closes_gap", True)}
+    want = exp.get("partial_options", {})
+    row["partial_correct"] = (
+        sorted(partial) == sorted(want)
+        and all(abs(partial[k] - want[k]) <= tol_days for k in want)
+    )
+    row["partial_options"] = partial
     row["options_generated"] = len(plan.get("options", []))
     row["options_feasible"] = sum(1 for o in plan.get("options", []) if o["status"] == "feasible")
 
@@ -162,6 +171,7 @@ def summarize(rows: list[dict]) -> dict:
         "mean_stockout_date_error_days": mean(flat("stockout_date_error_days")),
         "recommended_option_accuracy": sum(flat("recommended_correct")) / n,
         "infeasible_option_accuracy": sum(flat("infeasible_correct")) / n,
+        "partial_option_accuracy": sum(flat("partial_correct")) / n,
         "retrieval_recall_at_1": mean(r["retrieval"]["recall_at_1"] for r in rows),
         "retrieval_recall_at_3": mean(r["retrieval"]["recall_at_3"] for r in rows),
         "evidence_coverage": mean(r["retrieval"]["evidence_coverage"] for r in rows),
@@ -200,6 +210,7 @@ def print_report(summary: dict, rows: list[dict]) -> None:
     print(f"{'Stock-out date error (days, shortage cases)':<42}{('n/a' if err is None else f'{err:.1f}'):>10}")
     print(f"{'Recommended option correct':<42}{pct(summary['recommended_option_accuracy']):>10}")
     print(f"{'Infeasible options identified':<42}{pct(summary['infeasible_option_accuracy']):>10}")
+    print(f"{'Partial (late) options identified':<42}{pct(summary['partial_option_accuracy']):>10}")
     print(f"{'Retrieval Recall@1 / Recall@3':<42}{pct(summary['retrieval_recall_at_1']):>10}{pct(summary['retrieval_recall_at_3']):>10}")
     print(f"{'Evidence coverage (required facts found)':<42}{pct(summary['evidence_coverage']):>10}")
     print(f"{'Tool error rate':<42}{pct(summary['tool_error_rate']):>10}")
