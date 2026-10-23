@@ -147,12 +147,12 @@
 ---
 ## 🔲 Stage 8 — Evaluation & Hardening
 
-- [ ] Build evaluation harness with labeled test cases
-- [ ] Implement impact tracing metrics (precision, recall)
-- [ ] Implement shortage estimation metrics (date error, calibration)
-- [ ] Implement RAG quality metrics (Recall@k, evidence coverage)
-- [ ] Implement agent reliability metrics (task success, tool error rate, latency)
-- [ ] Compare results against simple baseline
+- [x] Build evaluation harness with labeled test cases (evaluation/cases.json: 2 cases, labels derived by hand + independent day-by-day simulation; run: python -m evaluation.run_eval)
+- [x] Implement impact tracing metrics (precision, recall) -- found a real false positive on EVT-001 (PRD-306), see xfail test
+- [x] Implement shortage estimation metrics (date error: 1 day on EVT-002; calibration not done -- only 2 cases)
+- [x] Implement RAG quality metrics (Recall@1/@3, evidence coverage) -- penalty-clause lookup only, 2 queries
+- [x] Implement agent reliability metrics (tool error rate, latency; --with-llm adds full-agent success -- not yet run)
+- [x] Compare results against simple baseline (evaluation/baseline.py: "late = shortage, flag everything")
 - [ ] Add structured logging throughout
 - [ ] Add error handling and input validation
 - [ ] Write documentation (architecture, decisions, setup guide)

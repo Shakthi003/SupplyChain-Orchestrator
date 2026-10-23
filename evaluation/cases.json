@@ -1,0 +1,53 @@
+{
+  "_about": "Ground-truth labels derived independently of the engine under test: by hand from the raw database rows, then cross-checked with a separate day-by-day stock simulation (each production order consumes its need evenly from planned_start to planned_end). Data is SYNTHETIC: this shows the engine agrees with a transparent calculation, not that it works on real supply chains.",
+  "stockout_tolerance_days": 1,
+  "cases": [
+    {
+      "event_id": "EVT-001",
+      "supplier_id": "SUP-005",
+      "delay_days": 4,
+      "expected": {
+        "has_shortage": false,
+        "stockout_date": null,
+        "at_risk_production_orders": [],
+        "at_risk_customer_orders": [],
+        "exposure": 0.0,
+        "recommended_option": "OPT-A",
+        "infeasible_options": [],
+        "evidence_docs": ["CONTRACT-SUP-005"],
+        "evidence_phrases": ["Delay 4-7 days: 5%"]
+      },
+      "derivation": [
+        "As-of date = 2026-10-20 (detected_at). Part PRT-104. Available = (45-30) + (80-0) = 95 units.",
+        "Open orders using PRT-104 (BOM: FGD-201 x2, FGD-203 x1): PRD-301 needs 50 (Oct 23-28), PRD-302 needs 15 (Oct 25-Nov 1), PRD-306 needs 80 (Nov 4-9).",
+        "Shipment SHP-441 (200 units, revised ETA Oct 30) lands before PRD-306 starts, so stock never runs out. Day-by-day simulation confirms: no day with unmet demand.",
+        "Therefore: no shortage, no order at risk, exposure 0. Cheapest feasible action is to use existing stock (OPT-A).",
+        "Contract: SUP-005, a 4-day delay falls in the 'Delay 4-7 days: 5%' band."
+      ]
+    },
+    {
+      "event_id": "EVT-002",
+      "supplier_id": "SUP-004",
+      "delay_days": 14,
+      "expected": {
+        "has_shortage": true,
+        "stockout_date": "2026-11-04",
+        "at_risk_production_orders": ["PRD-305"],
+        "at_risk_customer_orders": ["CO-505"],
+        "exposure": 10750.0,
+        "recommended_option": "OPT-D1",
+        "infeasible_options": ["OPT-A", "OPT-C1"],
+        "evidence_docs": ["CONTRACT-SUP-004"],
+        "evidence_phrases": ["Delay 8-14 days: 3%"]
+      },
+      "derivation": [
+        "As-of date = 2026-10-23. Part PRT-112 (FGD-205 x2). Available = 240 - 60 = 180 units. Only other shipment SHP-443 is already DELIVERED.",
+        "Open orders: PRD-307 needs 70 (Oct 25-30), PRD-308 needs 60 (Oct 29-Nov 3), PRD-305 needs 60 (Oct 30-Nov 4). Total 190 > 180 available.",
+        "Day-by-day: cumulative use reaches exactly 180 at the end of Nov 3, so the first day demand cannot be met is Nov 4. Revised ETA is Nov 18, so the gap is real.",
+        "Only PRD-305 is short (its last day needs 10 units, 0 left). It links to customer order CO-505 ($10,750).",
+        "Using stock (OPT-A) cannot cover a 190-unit need with 180 units, so it is infeasible. Expediting the late shipment (OPT-C1) saves only a few days of a 14-day delay, so it still lands after the Nov 4 stock-out: infeasible. The only remaining supply source is an alternate supplier (OPT-D1). (First draft of this label forgot OPT-C1; corrected after the first run, by this reasoning, not by copying engine output.)",
+        "Contract: SUP-004, a 14-day delay falls in the 'Delay 8-14 days: 3%' band."
+      ]
+    }
+  ]
+}
