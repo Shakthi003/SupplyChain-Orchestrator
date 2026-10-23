@@ -1,4 +1,4 @@
-﻿# SupplyChain Orchestrator — Project Progress Tracker
+# SupplyChain Orchestrator — Project Progress Tracker
 
 > An Explainable Agentic AI Platform for Supply Chain Risk and Recovery
 > Last updated: Session 8 — Stage 6 Agent & RAG Layer complete
@@ -137,6 +137,8 @@
 - [x] 15 integration tests passing (Gemini faked, audit log write captured -- real DB not polluted)
 - [x] Streamlit UI (app/main.py): impact, options, graph, evidence, AI explanation, decision form, audit log
 - [x] UI -> API -> core engine connected; UI verified with Streamlit AppTest against live API
+- [x] Fixed date drift: all calculations now use one "as of" date (the event's detected_at, core/clock.py) instead of the live clock. Engine self-check passes again (13.1 days coverage); 16 tests pass
+
 - [x] git repo initialised (keys.md and understand.md are git-ignored: they contain secrets / chat export)
 - [ ] Scenario comparison view (what-if simulator) -- NOT done: needs new scenario data + endpoint
 - [ ] Validate UI with more than one scenario -- only EVT-001 exists in the data

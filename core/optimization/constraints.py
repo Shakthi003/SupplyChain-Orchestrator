@@ -48,7 +48,8 @@ MAX_ALT_LEAD_DAYS         = 21     # Option D: alt supplier must deliver within 
 def check_use_stock(
     option: RecoveryOption,
     shortage_date: Optional[datetime],
-    nearest_shipment_eta: Optional[datetime]
+    nearest_shipment_eta: Optional[datetime],
+    today: datetime
 ) -> tuple[bool, str]:
     """
     Option A is feasible if current stock lasts until the shipment arrives.
@@ -59,8 +60,6 @@ def check_use_stock(
         (stock runs out before replenishment arrives)
       If coverage_days >= 1 → partially feasible (buys some time)
     """
-    today = datetime.now(timezone.utc).replace(tzinfo=None)
-
     if shortage_date is None:
         return True, "No shortage detected. Current stock is sufficient."
 
@@ -128,15 +127,14 @@ def check_transfer(
 
 def check_expedite(
     option: RecoveryOption,
-    shortage_date: Optional[datetime]
+    shortage_date: Optional[datetime],
+    today: datetime
 ) -> tuple[bool, str]:
     """
     Option C is feasible if:
       1. The expedited ETA is earlier than the shortage date
       2. The expedited ETA is within MAX_EXPEDITE_LEAD_DAYS from today
     """
-    today = datetime.now(timezone.utc).replace(tzinfo=None)
-
     if not option.expedited_eta:
         return False, "No expedited ETA could be calculated."
 
@@ -169,7 +167,8 @@ def check_expedite(
 
 def check_alt_supplier(
     option: RecoveryOption,
-    shortage_date: Optional[datetime]
+    shortage_date: Optional[datetime],
+    today: datetime
 ) -> tuple[bool, str]:
     """
     Option D is feasible if:
@@ -177,8 +176,6 @@ def check_alt_supplier(
       2. Lead time is short enough to prevent or minimize shortage
       3. Supplier is not the same as the one causing the delay
     """
-    today = datetime.now(timezone.utc).replace(tzinfo=None)
-
     # Check 1: reliability threshold
     if option.alt_supplier_reliability < MIN_ALT_RELIABILITY:
         return False, (
@@ -217,7 +214,8 @@ def check_all_constraints(
     shortage_date: Optional[datetime],
     nearest_shipment_eta: Optional[datetime],
     units_needed: float,
-    days_until_production_start: int
+    days_until_production_start: int,
+    as_of_date: datetime
 ) -> list[RecoveryOption]:
     """
     Run feasibility checks on all recovery options.
@@ -236,7 +234,7 @@ def check_all_constraints(
 
         if option.option_type == OptionType.USE_STOCK:
             passed, note = check_use_stock(
-                option, shortage_date, nearest_shipment_eta
+                option, shortage_date, nearest_shipment_eta, as_of_date
             )
 
         elif option.option_type == OptionType.TRANSFER:
@@ -245,10 +243,10 @@ def check_all_constraints(
             )
 
         elif option.option_type == OptionType.EXPEDITE:
-            passed, note = check_expedite(option, shortage_date)
+            passed, note = check_expedite(option, shortage_date, as_of_date)
 
         elif option.option_type == OptionType.ALT_SUPPLIER:
-            passed, note = check_alt_supplier(option, shortage_date)
+            passed, note = check_alt_supplier(option, shortage_date, as_of_date)
 
         else:
             passed, note = False, "Unknown option type."
