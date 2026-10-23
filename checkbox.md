@@ -142,7 +142,7 @@
 - [x] git repo initialised (keys.md and understand.md are git-ignored: they contain secrets / chat export)
 - [-] Scenario comparison view (what-if simulator) -- dropped by the user's decision, will not be built
 - [ ] Validate UI with more than one scenario -- only EVT-001 exists in the data
-- [ ] Verify graph tab + real Gemini explanation in the UI (Neo4j was offline and Gemini returned 503 during testing)
+- [x] Verify graph tab + real Gemini explanation in the UI -- graph verified earlier; real AI explanation verified in the browser after switching model to gemini-3.5-flash-lite (one run, contract claims cross-checked against the source docs)
 
 ---
 ## 🔲 Stage 8 — Evaluation & Hardening

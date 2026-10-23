@@ -630,7 +630,7 @@ Same data in, same answer out only holds if the date is also an input.
 
 - [x] What-if simulator: dropped by decision, not building it
 - [ ] Test the UI on more than one event
-- [ ] Decide how to handle Gemini 504s (per-attempt limit or a different model)
-- [ ] Restart uvicorn so it runs the latest code
+- [x] Gemini 504s: switched model from gemini-3.8-flash (overloaded: 503/504/429 in probes) to gemini-3.5-flash-lite (4/4 OK, ~2.5s). One real UI run succeeded; not proof they are gone for good
+- [x] Restart uvicorn: done by the user, UI now shows 13.1 days coverage
 
 ---
