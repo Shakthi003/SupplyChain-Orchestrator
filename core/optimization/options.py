@@ -238,8 +238,6 @@ def generate_expedite_options(
         if not shipment.revised_eta:
             continue
 
-        today = datetime.now(timezone.utc).replace(tzinfo=None)
-
         # Assumption: expediting can save 2 days (air freight vs standard)
         days_saved = 2
         expedited_eta = shipment.revised_eta - timedelta(days=days_saved)

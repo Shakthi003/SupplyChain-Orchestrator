@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from core.config import DATABASE_URL
 from core.models import DisruptionEvent, Shipment, PurchaseOrder
+from core.clock import as_of_for_event
 from core.impact_analysis.bom_tracer import trace_component_to_products
 from core.impact_analysis.order_impact import find_affected_orders
 from core.impact_analysis.inventory import calculate_coverage
@@ -59,11 +60,10 @@ def run_recovery_planning_tool(event_id: str) -> dict:
         db_engine = create_engine(DATABASE_URL)
 
         with Session(db_engine) as session:
-            today = datetime.now(timezone.utc).replace(tzinfo=None)
-
             event = session.get(DisruptionEvent, event_id)
             if not event:
                 return {"error": f"Event {event_id} not found."}
+            today = as_of_for_event(event)
 
             shipment = session.get(Shipment, event.source_entity_id)
             po = session.get(PurchaseOrder, shipment.purchase_order_id)
@@ -80,13 +80,15 @@ def run_recovery_planning_tool(event_id: str) -> dict:
                 affected_product_ids=affected_product_ids,
                 total_available_stock=0,
                 shortage_date=None,
+                as_of_date=today,
             )
             daily_consumption = order_first.daily_consumption_rate
 
             coverage = calculate_coverage(
                 session=session,
                 part_id=part_id,
-                daily_consumption=daily_consumption
+                daily_consumption=daily_consumption,
+                as_of_date=today,
             )
 
             order_result = find_affected_orders(
@@ -96,6 +98,7 @@ def run_recovery_planning_tool(event_id: str) -> dict:
                 affected_product_ids=affected_product_ids,
                 total_available_stock=coverage.total_available,
                 shortage_date=coverage.shortage_date,
+                as_of_date=today,
             )
 
             units_needed = sum(
@@ -133,7 +136,8 @@ def run_recovery_planning_tool(event_id: str) -> dict:
                 shortage_date=coverage.shortage_date,
                 nearest_shipment_eta=nearest_eta,
                 units_needed=units_needed,
-                days_until_production_start=days_until_production
+                days_until_production_start=days_until_production,
+                as_of_date=today
             )
 
             options = calculate_all_costs(
@@ -150,7 +154,7 @@ def run_recovery_planning_tool(event_id: str) -> dict:
                 [o.alt_supplier_lead_time for o in options if o.option_type == OptionType.ALT_SUPPLIER]
                 + [shipment.delay_days or 7]
             )
-            options = score_options(options, max_cost=max_cost, max_lead_days=max_lead)
+            options = score_options(options, max_cost=max_cost, max_lead_days=max_lead, as_of_date=today)
 
             doing_nothing = cost_of_doing_nothing(shipment.delay_days or 4)
 

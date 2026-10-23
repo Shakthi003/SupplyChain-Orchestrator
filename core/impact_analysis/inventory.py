@@ -112,7 +112,7 @@ def calculate_coverage(
     session: Session,
     part_id: str,
     daily_consumption: float,
-    as_of_date: Optional[datetime] = None
+    as_of_date: datetime
 ) -> CoverageResult:
     """
     Calculate inventory coverage for a specific part.
@@ -122,7 +122,7 @@ def calculate_coverage(
         part_id:           The part to analyze (e.g. "PRT-104")
         daily_consumption: How many units are consumed per day
                            (calculated from production order requirements)
-        as_of_date:        Reference date for calculations (defaults to today)
+        as_of_date:        Reference date for calculations (see core/clock.py)
 
     Returns:
         CoverageResult with full analysis
@@ -132,9 +132,6 @@ def calculate_coverage(
         which are computed by order_impact.py.
         We keep this function focused: it only does stock math.
     """
-    if as_of_date is None:
-        as_of_date = datetime.now(timezone.utc).replace(tzinfo=None)
-
     # ------------------------------------------------------------------
     # STEP 1: Get all inventory records for this part across all warehouses
     # ------------------------------------------------------------------

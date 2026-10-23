@@ -32,6 +32,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core.config import DATABASE_URL
+from core.clock import as_of_for_event
 from core.models import DisruptionEvent, Shipment, PurchaseOrder, DisruptionStatus
 from core.impact_analysis.bom_tracer import trace_component_to_products
 from core.impact_analysis.order_impact import find_affected_orders
@@ -302,6 +303,7 @@ def run_impact_analysis(event_id: str = "EVT-001"):
             return
 
         component_part_id = po.part_id
+        as_of = as_of_for_event(event)
 
         print(f"\nAnalyzing event {event_id}...")
         print(f"  Delayed part: {component_part_id} ({po.part.name})")
@@ -328,6 +330,7 @@ def run_impact_analysis(event_id: str = "EVT-001"):
             affected_product_ids=affected_product_ids,
             total_available_stock=0,    # placeholder, recalculated below
             shortage_date=None,         # placeholder
+            as_of_date=as_of,
         )
 
         daily_consumption = order_result_first.daily_consumption_rate
@@ -339,7 +342,8 @@ def run_impact_analysis(event_id: str = "EVT-001"):
         coverage_result = calculate_coverage(
             session=session,
             part_id=component_part_id,
-            daily_consumption=daily_consumption
+            daily_consumption=daily_consumption,
+            as_of_date=as_of,
         )
 
         # ------------------------------------------------------------------
@@ -352,6 +356,7 @@ def run_impact_analysis(event_id: str = "EVT-001"):
             affected_product_ids=affected_product_ids,
             total_available_stock=coverage_result.total_available,
             shortage_date=coverage_result.shortage_date,
+            as_of_date=as_of,
         )
 
         # ------------------------------------------------------------------

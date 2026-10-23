@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from core.config import DATABASE_URL
 from core.models import DisruptionEvent, Shipment, PurchaseOrder
+from core.clock import as_of_for_event
 from core.impact_analysis.bom_tracer import trace_component_to_products
 from core.impact_analysis.order_impact import find_affected_orders
 from core.impact_analysis.inventory import calculate_coverage
@@ -61,12 +62,11 @@ def run_impact_analysis_tool(event_id: str) -> dict:
         db_engine = create_engine(DATABASE_URL)
 
         with Session(db_engine) as session:
-            today = datetime.now(timezone.utc).replace(tzinfo=None)
-
             # Load event
             event = session.get(DisruptionEvent, event_id)
             if not event:
                 return {"error": f"Event {event_id} not found.", "event_id": event_id}
+            today = as_of_for_event(event)
 
             # Load shipment and PO
             shipment = session.get(Shipment, event.source_entity_id)
@@ -85,6 +85,7 @@ def run_impact_analysis_tool(event_id: str) -> dict:
                 affected_product_ids=affected_product_ids,
                 total_available_stock=0,
                 shortage_date=None,
+                as_of_date=today,
             )
             daily_consumption = order_first.daily_consumption_rate
 
@@ -92,7 +93,8 @@ def run_impact_analysis_tool(event_id: str) -> dict:
             coverage = calculate_coverage(
                 session=session,
                 part_id=part_id,
-                daily_consumption=daily_consumption
+                daily_consumption=daily_consumption,
+                as_of_date=today,
             )
 
             # Second pass: real risk assessment
@@ -103,6 +105,7 @@ def run_impact_analysis_tool(event_id: str) -> dict:
                 affected_product_ids=affected_product_ids,
                 total_available_stock=coverage.total_available,
                 shortage_date=coverage.shortage_date,
+                as_of_date=today,
             )
 
             # Build clean output dict

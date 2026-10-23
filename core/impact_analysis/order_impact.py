@@ -148,7 +148,7 @@ def find_affected_orders(
     affected_product_ids: list[str],
     total_available_stock: float,
     shortage_date: Optional[datetime],
-    as_of_date: Optional[datetime] = None
+    as_of_date: datetime
 ) -> OrderImpactResult:
     """
     Find all production and customer orders affected by a component shortage.
@@ -160,11 +160,8 @@ def find_affected_orders(
         affected_product_ids:  Products that use this component (from bom_tracer)
         total_available_stock: How many units are available right now
         shortage_date:         When stock is expected to run out (None = no shortage)
-        as_of_date:            Today's date for calculations
+        as_of_date:            Reference date for calculations (see core/clock.py)
     """
-    if as_of_date is None:
-        as_of_date = datetime.now(timezone.utc).replace(tzinfo=None)
-
     result = OrderImpactResult(
         component_part_id=component_part_id,
         component_part_name=component_part_name

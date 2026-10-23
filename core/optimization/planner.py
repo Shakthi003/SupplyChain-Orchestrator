@@ -30,6 +30,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core.config import DATABASE_URL
+from core.clock import as_of_for_event
 from core.models import (
     DisruptionEvent, Shipment, PurchaseOrder, Inventory
 )
@@ -49,7 +50,8 @@ from core.optimization.costs import calculate_all_costs, cost_of_doing_nothing
 def score_options(
     options: list[RecoveryOption],
     max_cost: float,
-    max_lead_days: int
+    max_lead_days: int,
+    as_of_date: datetime
 ) -> list[RecoveryOption]:
     """
     Score and rank all FEASIBLE options.
@@ -81,8 +83,7 @@ def score_options(
         elif option.option_type == OptionType.TRANSFER:
             speed_days = option.transfer_days
         elif option.option_type == OptionType.EXPEDITE:
-            today = datetime.now(timezone.utc).replace(tzinfo=None)
-            speed_days = (option.expedited_eta - today).days if option.expedited_eta else max_lead_days
+            speed_days = (option.expedited_eta - as_of_date).days if option.expedited_eta else max_lead_days
         elif option.option_type == OptionType.ALT_SUPPLIER:
             speed_days = option.alt_supplier_lead_time
         else:
@@ -195,13 +196,12 @@ def run_recovery_planning(event_id: str = "EVT-001"):
     db_engine = create_engine(DATABASE_URL)
 
     with Session(db_engine) as session:
-        today = datetime.now(timezone.utc).replace(tzinfo=None)
-
         # --- Load event data ---
         event = session.get(DisruptionEvent, event_id)
         if not event:
             print(f"[ERROR] Event {event_id} not found.")
             return
+        today = as_of_for_event(event)
 
         shipment = session.get(Shipment, event.source_entity_id)
         po = session.get(PurchaseOrder, shipment.purchase_order_id)
@@ -223,13 +223,15 @@ def run_recovery_planning(event_id: str = "EVT-001"):
             affected_product_ids=affected_product_ids,
             total_available_stock=0,
             shortage_date=None,
+            as_of_date=today,
         )
         daily_consumption = order_result_first.daily_consumption_rate
 
         coverage = calculate_coverage(
             session=session,
             part_id=part_id,
-            daily_consumption=daily_consumption
+            daily_consumption=daily_consumption,
+            as_of_date=today,
         )
 
         order_result = find_affected_orders(
@@ -239,6 +241,7 @@ def run_recovery_planning(event_id: str = "EVT-001"):
             affected_product_ids=affected_product_ids,
             total_available_stock=coverage.total_available,
             shortage_date=coverage.shortage_date,
+            as_of_date=today,
         )
 
         # Total units needed by all at-risk production orders
@@ -287,7 +290,8 @@ def run_recovery_planning(event_id: str = "EVT-001"):
             shortage_date=coverage.shortage_date,
             nearest_shipment_eta=nearest_eta,
             units_needed=units_needed,
-            days_until_production_start=days_until_production
+            days_until_production_start=days_until_production,
+            as_of_date=today
         )
         feasible_count = sum(1 for o in options if o.status == OptionStatus.FEASIBLE)
         print(f"  Feasible options : {feasible_count}")
@@ -302,7 +306,7 @@ def run_recovery_planning(event_id: str = "EVT-001"):
         # --- Step 4: Rank ---
         max_cost = max((o.estimated_cost for o in options if o.status == OptionStatus.FEASIBLE), default=1.0)
         max_lead = max([o.alt_supplier_lead_time for o in options if o.option_type == OptionType.ALT_SUPPLIER] + [shipment.delay_days or 7])
-        options = score_options(options, max_cost=max_cost, max_lead_days=max_lead)
+        options = score_options(options, max_cost=max_cost, max_lead_days=max_lead, as_of_date=today)
 
         # --- Cost of doing nothing ---
         doing_nothing = cost_of_doing_nothing(shipment.delay_days or 4)
