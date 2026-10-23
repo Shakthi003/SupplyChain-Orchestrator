@@ -141,7 +141,7 @@
 
 - [x] git repo initialised (keys.md and understand.md are git-ignored: they contain secrets / chat export)
 - [-] Scenario comparison view (what-if simulator) -- dropped by the user's decision, will not be built
-- [x] Second scenario added (scripts/add_scenario_2.py -> EVT-002: real shortage, 14-day delay on PRT-112). Engine + planner + graph verified on it; UI check pending (user)
+- [x] Second scenario added (scripts/add_scenario_2.py -> EVT-002: real shortage, 14-day delay on PRT-112). Verified in the browser: Impact, Recovery options, Impact chain, Evidence (SUP-004 contract retrieved), Decision tabs. AI explanation tab on EVT-002 not yet seen
 - [x] Verify graph tab + real Gemini explanation in the UI -- graph verified earlier; real AI explanation verified in the browser after switching model to gemini-3.5-flash-lite (one run, contract claims cross-checked against the source docs)
 
 ---

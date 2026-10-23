@@ -437,11 +437,13 @@ A human must still:
 ### Files created
 
 **retrieval/ (the filing cabinet):**
+
 - `retrieval/documents.py` — 12 synthetic documents: 5 supplier contracts, 3 policies, 3 past decisions, 1 runbook
 - `retrieval/embedder.py` — converts documents to vectors, saves to ChromaDB (run once like generate_data.py)
 - `retrieval/retriever.py` — semantic search: given a question, returns relevant chunks
 
 **tools/ (the agent's hands — wrappers around stages 3, 4, 5):**
+
 - `tools/impact_tool.py` — wraps Stage 3 engine, returns clean dict
 - `tools/planning_tool.py` — wraps Stage 5 planner, returns ranked options dict
 - `tools/graph_tool.py` — wraps Stage 4 Neo4j queries, returns impact chain text
@@ -449,12 +451,14 @@ A human must still:
 - `tools/audit_tool.py` — saves human decisions to PostgreSQL decision_log table
 
 **agents/ (the brain):**
+
 - `agents/state.py` — AgentState TypedDict: 20 fields carried through all nodes
 - `agents/nodes.py` — 8 node functions, one per workflow step
 - `agents/workflow.py` — LangGraph pipeline connecting all nodes
 - `agents/runner.py` — entry point: `uv run python agents/runner.py`
 
 **database:**
+
 - `core/models.py` — added `DecisionLog` table (TABLE 11) to store all human decisions
 
 ### The 8-step pipeline (confirmed working)
@@ -474,6 +478,7 @@ Step 8: save_decision       -> Decision ID 1 saved to PostgreSQL
 
 **What is RAG (Retrieval Augmented Generation)?**
 The AI doesn't memorize contracts. Instead:
+
 1. At setup: documents are converted to vectors (numbers) and stored in ChromaDB
 2. At query time: the question is converted to a vector, ChromaDB finds the nearest document vectors
 3. Those matching documents are given to Gemini as context in its prompt
@@ -532,6 +537,7 @@ Status: **mostly done**. The what-if simulator was dropped by decision and will 
 In Session 8, the workflow paused at Step 7 and waited for someone to type in the terminal. That does not work behind a web page: a browser cannot "pause" a Python script.
 
 New design:
+
 - `agents/runner.py` has `run_analysis()`. It takes no input and runs Steps 1 to 6, then returns the recommendation.
 - `agents/decision.py` has `submit_decision()`. It is a separate function the UI calls when a person clicks Approve or Reject.
 - Approval is strict. A real yes/no is required, a name and a rationale are required, and the chosen option must be feasible. Empty input no longer counts as "yes".
@@ -541,21 +547,26 @@ This keeps the rule "AI recommends, a human decides, the system never executes".
 ### Files created or changed
 
 **api/ (the backend):**
+
 - `api/main.py` — FastAPI app with endpoints: `/health`, `/events`, `/events/{id}`, `POST /events/{id}/analyze`, `POST /events/{id}/decision`, `/decisions`, `/inventory/{part_id}`
 - `api/schemas.py` — Pydantic models that define what each request and response looks like
 
 **app/ (the frontend):**
+
 - `app/main.py` — Streamlit UI with 6 tabs: Impact, Recovery options, Impact chain (graph), Evidence, AI explanation, Decision (form plus audit log)
 
 **agents/:**
+
 - `agents/decision.py` (new) — `submit_decision()`
 - `agents/runner.py` (rewritten) — `run_analysis()` and a command-line entry point
 - `agents/workflow.py`, `agents/nodes.py`, `agents/state.py` — approval and save nodes removed; decision fields removed from the state
 
 **core/:**
+
 - `core/clock.py` (new) — the single "as of" date for all calculations (see the bug below)
 
 **tests/:**
+
 - `tests/integration/test_api.py` — 15 tests. Gemini is faked and the audit-log write is captured, so tests never touch the real decision log.
 - `tests/unit/test_ui_rendering.py` — 1 regression test
 
@@ -571,11 +582,13 @@ The decision endpoint does not trust the numbers sent by the browser. It recompu
 ### What we verified, and what we did not
 
 Verified:
+
 - You opened the UI in a browser and every tab worked, including the real graph data, the Evidence tab, and a saved Approve (decision 2).
 - All 16 tests pass.
 - The engine's own 7-point self-check passes.
 
 Not verified or not done:
+
 - Only one scenario exists (EVT-001), so the UI has never been tried on a second event.
 - The Gemini explanation works only some of the time (see below).
 - The what-if simulator (scenario comparison) was dropped by decision.
@@ -628,9 +641,9 @@ Same data in, same answer out only holds if the date is also an input.
 
 ### Still to do for Stage 7
 
-- [x] What-if simulator: dropped by decision, not building it
+- [X] What-if simulator: dropped by decision, not building it
 - [ ] Test the UI on more than one event
-- [x] Gemini 504s: switched model from gemini-3.8-flash (overloaded: 503/504/429 in probes) to gemini-3.5-flash-lite (4/4 OK, ~2.5s). One real UI run succeeded; not proof they are gone for good
-- [x] Restart uvicorn: done by the user, UI now shows 13.1 days coverage
+- [X] Gemini 504s: switched model from gemini-3.8-flash (overloaded: 503/504/429 in probes) to gemini-3.5-flash-lite (4/4 OK, ~2.5s). One real UI run succeeded; not proof they are gone for good
+- [X] Restart uvicorn: done by the user, UI now shows 13.1 days coverage
 
 ---
