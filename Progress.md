@@ -513,3 +513,124 @@ Handled gracefully: fallback manual summary is generated when Gemini is unavaila
 The pipeline continues to completion regardless.
 
 ---
+
+## Session 9 — Stage 7: API & UI
+
+### What we did
+
+- Moved the human approval out of the AI workflow, so the workflow now ends after the explanation step
+- Built a FastAPI backend and a Streamlit UI on top of the existing engines
+- Wrote 16 automated tests (all passing)
+- Set up git (7 commits so far)
+- Fixed a real bug: results changed from day to day because the code read the computer clock
+- Investigated Gemini timeouts (504/503 errors)
+
+Status: **mostly done**. The what-if simulator is not built yet.
+
+### Why approval moved out of the workflow
+
+In Session 8, the workflow paused at Step 7 and waited for someone to type in the terminal. That does not work behind a web page: a browser cannot "pause" a Python script.
+
+New design:
+- `agents/runner.py` has `run_analysis()`. It takes no input and runs Steps 1 to 6, then returns the recommendation.
+- `agents/decision.py` has `submit_decision()`. It is a separate function the UI calls when a person clicks Approve or Reject.
+- Approval is strict. A real yes/no is required, a name and a rationale are required, and the chosen option must be feasible. Empty input no longer counts as "yes".
+
+This keeps the rule "AI recommends, a human decides, the system never executes".
+
+### Files created or changed
+
+**api/ (the backend):**
+- `api/main.py` — FastAPI app with endpoints: `/health`, `/events`, `/events/{id}`, `POST /events/{id}/analyze`, `POST /events/{id}/decision`, `/decisions`, `/inventory/{part_id}`
+- `api/schemas.py` — Pydantic models that define what each request and response looks like
+
+**app/ (the frontend):**
+- `app/main.py` — Streamlit UI with 6 tabs: Impact, Recovery options, Impact chain (graph), Evidence, AI explanation, Decision (form plus audit log)
+
+**agents/:**
+- `agents/decision.py` (new) — `submit_decision()`
+- `agents/runner.py` (rewritten) — `run_analysis()` and a command-line entry point
+- `agents/workflow.py`, `agents/nodes.py`, `agents/state.py` — approval and save nodes removed; decision fields removed from the state
+
+**core/:**
+- `core/clock.py` (new) — the single "as of" date for all calculations (see the bug below)
+
+**tests/:**
+- `tests/integration/test_api.py` — 15 tests. Gemini is faked and the audit-log write is captured, so tests never touch the real decision log.
+- `tests/unit/test_ui_rendering.py` — 1 regression test
+
+### How the pieces connect
+
+```
+Streamlit UI  ->  FastAPI  ->  tools/  ->  core engines (PostgreSQL)
+ (browser)       (api/main.py)           + Neo4j graph + ChromaDB + Gemini
+```
+
+The decision endpoint does not trust the numbers sent by the browser. It recomputes impact and planning on the server before saving.
+
+### What we verified, and what we did not
+
+Verified:
+- You opened the UI in a browser and every tab worked, including the real graph data, the Evidence tab, and a saved Approve (decision 2).
+- All 16 tests pass.
+- The engine's own 7-point self-check passes.
+
+Not verified or not done:
+- Only one scenario exists (EVT-001), so the UI has never been tried on a second event.
+- The Gemini explanation works only some of the time (see below).
+- The what-if simulator (scenario comparison) is not built.
+
+### Bugs found and fixed
+
+**Bug 1 — `$` signs turned into maths:**
+Streamlit treats text between two `$` signs as a LaTeX formula, so "$20,300 ... $4,800" showed up garbled.
+Fix: an `md()` helper escapes the dollar signs, plus a regression test.
+
+**Bug 2 — Numbers drifted from day to day (the important one):**
+About ten places in the engine, planner and tools asked the computer clock "what is today?". The coverage figure moved from 12.5 to 11.1 to 10.5 days with no change to the data. The engine's own self-check started failing ("expected 12+ days, got 10.5"). This broke the design rule "same input, same output".
+Why it happens: `order_impact.py` spreads a fixed amount of demand over "today until the last order ends". A later "today" gives a shorter window and a higher daily use.
+Fix: `core/clock.py` returns the event's `detected_at` date (Oct 20). Every calculation now receives that date as an input. Coverage is now a stable 13.1 days, and the shortage date is Nov 2.
+Learned: if a result depends on "now", it is not deterministic. Pass time in as an input.
+Two kinds of clock reads remain on purpose: the audit log timestamp and the database `created_at` defaults. Those record when something really happened.
+
+**Bug 3 — Graph tab and Impact tab showed different totals:**
+Graph tab: $42,580 (all customer orders that depend on the part). Impact tab: $20,300 (only the orders actually at risk).
+Both are correct, since they answer different questions. We added a caption to the graph tab that explains this.
+
+**Problem 4 — Neo4j was out of date:**
+Neo4j showed 20 units for WH-02 while PostgreSQL had 80. The graph is a copy and does not update itself.
+Fix: rerun `scripts/load_graph.py` whenever the data changes.
+
+### Gemini timeouts (honest status)
+
+- A call that works takes about 14 seconds.
+- Many calls fail with 503 (busy) or 504 (Google gave up after about 2 minutes). In one test: two calls hit 504 after 119 seconds, then the third succeeded in 14 seconds.
+- So the 504 comes from Google's side. It is not caused by our code.
+- We added a 20-second limit per attempt and up to 3 attempts in `agents/nodes.py`. If all fail, the fallback summary is used and the pipeline still finishes.
+- The 20-second limit is only 6 seconds above a normal success, and we have not re-measured it. Trying another model is still an open question.
+
+### Environment notes
+
+- The project lives inside OneDrive, which makes disk reads and model loading slow. Embedding model load took 30 to 110 seconds. API start-up took up to 6 minutes once. The test suite takes about 1 to 3 minutes.
+- Neo4j is only up when you start it in Neo4j Desktop.
+- `keys.md`, `understand.md`, `.env` and `*.log` are git-ignored because they hold secrets or a chat export.
+
+### Key concepts learned this session
+
+**Why split an API from a UI?**
+The UI only shows things and collects clicks. The API owns the rules. If someone replaced the UI, or called the API directly, the rules (strict approval, recomputing on the server) would still apply.
+
+**Why fake Gemini in tests?**
+A test must give the same answer every time and must not cost anything. A fake Gemini returns a fixed reply, so tests check our code and not Google's mood. The same goes for the audit log: a test must never write into the real one.
+
+**Determinism means controlling time too.**
+Same data in, same answer out only holds if the date is also an input.
+
+### Still to do for Stage 7
+
+- [ ] What-if simulator (needs a second scenario and a new endpoint)
+- [ ] Test the UI on more than one event
+- [ ] Decide how to handle Gemini 504s (per-attempt limit or a different model)
+- [ ] Restart uvicorn so it runs the latest code
+
+---
