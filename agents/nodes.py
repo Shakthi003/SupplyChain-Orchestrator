@@ -39,6 +39,12 @@ from tools.graph_tool import get_impact_chain_tool, get_spare_stock_tool
 from tools.retrieval_tool import get_supporting_documents
 
 from google import genai
+from google.genai import types as genai_types
+
+# Worst case wait = attempts x timeout + backoff ~= 66 s. A healthy call takes a few seconds;
+# a quick 503 is retried cheaply, a hung connection is cut off after 20 s.
+GEMINI_TIMEOUT_MS = 20_000   # per attempt
+GEMINI_ATTEMPTS = 3          # including the first try
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +407,17 @@ Structure it as:
 """
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        # Bounded wait: never let a slow/overloaded Gemini hang the whole analysis.
+        # Each attempt times out after GEMINI_TIMEOUT_MS; 503/429/5xx are retried.
+        client = genai.Client(
+            api_key=GEMINI_API_KEY,
+            http_options=genai_types.HttpOptions(
+                timeout=GEMINI_TIMEOUT_MS,
+                retry_options=genai_types.HttpRetryOptions(
+                    attempts=GEMINI_ATTEMPTS, initial_delay=2.0, max_delay=8.0
+                ),
+            ),
+        )
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt
