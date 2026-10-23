@@ -4,13 +4,14 @@
     "cases": 2,
     "shortage_verdict_accuracy": 1.0,
     "baseline_shortage_verdict_accuracy": 0.5,
-    "production_order_precision": 0.5,
+    "production_order_precision": 1.0,
     "production_order_recall": 1.0,
     "baseline_production_order_precision": 0.16666666666666666,
     "baseline_production_order_recall": 1.0,
-    "customer_order_precision": 0.5,
+    "customer_order_precision": 1.0,
     "customer_order_recall": 1.0,
-    "exposure_exact_match_rate": 0.5,
+    "exposure_exact_match_rate": 1.0,
+    "mean_exposure_error_usd": 0.0,
     "mean_baseline_exposure_error_usd": 35265.0,
     "mean_stockout_date_error_days": 1.0,
     "recommended_option_accuracy": 1.0,
@@ -19,38 +20,35 @@
     "retrieval_recall_at_3": 1.0,
     "evidence_coverage": 1.0,
     "tool_error_rate": 0.0,
-    "mean_tool_latency_s": 3.7016666666666667
+    "mean_tool_latency_s": 3.6183333333333336
   },
   "cases": [
     {
       "event_id": "EVT-001",
       "latency_s": {
-        "impact": 0.23,
-        "planning": 0.08,
-        "retrieval": 21.66
+        "impact": 0.25,
+        "planning": 0.09,
+        "retrieval": 21.12
       },
       "tool_errors": 0,
       "tool_calls": 3,
       "production_orders": {
-        "precision": 0.0,
+        "precision": 1.0,
         "recall": 1.0,
-        "f1": 0.0,
-        "fp": [
-          "PRD-306"
-        ],
+        "f1": 1.0,
+        "fp": [],
         "fn": []
       },
       "customer_orders": {
-        "precision": 0.0,
+        "precision": 1.0,
         "recall": 1.0,
-        "f1": 0.0,
-        "fp": [
-          "CO-506"
-        ],
+        "f1": 1.0,
+        "fp": [],
         "fn": []
       },
       "shortage_correct": true,
-      "exposure_correct": false,
+      "exposure_error": 0.0,
+      "exposure_correct": true,
       "stockout_date_error_days": null,
       "stockout_date_within_tolerance": null,
       "baseline": {
@@ -99,7 +97,7 @@
       "event_id": "EVT-002",
       "latency_s": {
         "impact": 0.14,
-        "planning": 0.09,
+        "planning": 0.1,
         "retrieval": 0.01
       },
       "tool_errors": 0,
@@ -119,6 +117,7 @@
         "fn": []
       },
       "shortage_correct": true,
+      "exposure_error": 0.0,
       "exposure_correct": true,
       "stockout_date_error_days": 1,
       "stockout_date_within_tolerance": true,

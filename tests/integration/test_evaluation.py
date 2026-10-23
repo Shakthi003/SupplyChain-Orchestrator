@@ -39,10 +39,6 @@ def test_evt002_is_exact(rows):
     assert r["exposure_correct"]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "KNOWN ENGINE FLAW found by this evaluation: order_impact flags PRD-306 at risk on EVT-001 "
-    "because the stock-out date ignores shipment SHP-441, which lands before PRD-306 starts. "
-    "Remove this xfail when the engine is fixed."))
 def test_evt001_has_no_false_positives(rows):
     r = rows["EVT-001"]
     assert r["production_orders"]["precision"] == 1.0

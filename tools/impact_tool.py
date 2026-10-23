@@ -52,9 +52,9 @@ def run_impact_analysis_tool(event_id: str) -> dict:
           "shortage_date":      "2026-11-02",
           "has_shortage":       False,
           "affected_products":  ["FGD-201", "FGD-203"],
-          "at_risk_prod_orders": [ { "order_id": "PRD-306", ... } ],
-          "at_risk_cust_orders": [ { "order_id": "CO-506", ... } ],
-          "total_exposure":     20300.0,
+          "at_risk_prod_orders": [ { "order_id": "PRD-xxx", ... } ],   # [] for EVT-001
+          "at_risk_cust_orders": [ { "order_id": "CO-xxx", ... } ],    # [] for EVT-001
+          "total_exposure":     0.0,                                   # EVT-001
           "error":              None
         }
     """

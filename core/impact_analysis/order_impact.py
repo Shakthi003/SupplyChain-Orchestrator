@@ -28,7 +28,10 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from core.models import ProductionOrder, CustomerOrder, BillOfMaterials, ProductionStatus, OrderStatus
+from core.models import (
+    ProductionOrder, CustomerOrder, BillOfMaterials, ProductionStatus, OrderStatus,
+    PurchaseOrder, Shipment,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -213,12 +216,38 @@ def find_affected_orders(
         result.daily_consumption_rate = round(total_units_needed_soon / window_days, 2)
 
     # ------------------------------------------------------------------
+    # STEP 2b: Inbound shipments for this part.
+    # Stock that arrives BEFORE an order starts can be used by that order,
+    # so each shipment is added to the pool once its (revised) ETA has passed.
+    # ------------------------------------------------------------------
+    inbound = [
+        (sh.revised_eta or sh.scheduled_date, pord.quantity)
+        for sh, pord in (
+            session.query(Shipment, PurchaseOrder)
+            .join(PurchaseOrder, Shipment.purchase_order_id == PurchaseOrder.id)
+            .filter(PurchaseOrder.part_id == component_part_id)
+            .filter(PurchaseOrder.status.in_([
+                OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, OrderStatus.DELAYED
+            ]))
+            .all()
+        )
+    ]
+    inbound.sort(key=lambda x: x[0])
+    inbound_added = 0   # how many shipments are already in the pool
+
+    # ------------------------------------------------------------------
     # STEP 3: Assess risk for each production order
     # ------------------------------------------------------------------
     stock_remaining = total_available_stock  # track as we allocate to orders
 
     for po in production_orders:
         product = po.product     # via SQLAlchemy relationship
+
+        # Add every shipment that lands on or before this order's start
+        while inbound_added < len(inbound) and inbound[inbound_added][0] <= po.planned_start:
+            stock_remaining += inbound[inbound_added][1]
+            inbound_added += 1
+        replenished_before_start = inbound_added > 0
 
         # How much of the component does this production order need?
         units_needed = get_component_requirement(
@@ -235,7 +264,10 @@ def find_affected_orders(
         is_at_risk = False
         risk_reason = "Within safe stock levels."
 
-        if shortage_date is not None and po.planned_start >= shortage_date:
+        # The "starts after the stock-out date" rule only applies when nothing
+        # arrives in time; otherwise the allocation check below decides.
+        if (shortage_date is not None and po.planned_start >= shortage_date
+                and not replenished_before_start):
             is_at_risk = True
             days_short = (po.planned_start - shortage_date).days
             risk_reason = (

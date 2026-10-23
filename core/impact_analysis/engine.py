@@ -169,21 +169,12 @@ def validate_results(order_result, coverage_result):
       - SHP-441 revised ETA: ~Oct 30 (9-10 days away)
       - has_shortage = False: shipment arrives BEFORE stock runs out (Oct 30 < Nov 2)
 
-      CONSERVATIVE RISK FLAG for PRD-306:
-        order_impact.py flags PRD-306 as AT RISK because its planned start (Nov 4)
-        is after the shortage date (Nov 2).
-        This is correct conservative behavior: the engine does NOT assume the
-        inbound shipment will actually arrive on time (it's already delayed once).
-        A human reviewer must confirm whether SHP-441 will arrive before Nov 4.
-        This is the "human-in-the-loop" principle: the system warns, humans decide.
-
-      KEY LEARNING:
-        inventory.py says "no shortage" (stock bridge exists)
-        order_impact.py says "PRD-306 AT RISK" (conservative, ignores replenishment)
-        Both are correct! They answer DIFFERENT questions:
-          inventory.py: "Do we run out of stock before replenishment?" (NO)
-          order_impact.py: "Is any production order scheduled after the theoretical shortage date?" (YES)
-        The recovery planner reconciles both views and recommends OPT-A (monitor) as top choice.
+      PRD-306 (starts Nov 4, needs 80 units) is NOT at risk:
+        SHP-441 (200 units, revised ETA Oct 30) arrives before it starts, and
+        order_impact.py now adds inbound shipments to the stock pool once their
+        ETA has passed. (Earlier versions flagged PRD-306 because they ignored
+        the shipment -- a false positive found by evaluation/run_eval.py.)
+        Residual risk: SHP-441 has already slipped once; a human should watch it.
     """
     print("\n  VALIDATION AGAINST KNOWN SCENARIO")
     print("-" * 65)
@@ -243,14 +234,11 @@ def validate_results(order_result, coverage_result):
         list(bom_related_prod_ids)
     )
 
-    # Check 7: PRD-306 conservative AT RISK flag
-    # order_impact.py conservatively flags PRD-306 because it starts (Nov 4) after
-    # the theoretical shortage date (Nov 2). This is intentional -- the system
-    # warns about orders that depend on the delayed shipment arriving on time.
+    # Check 7: PRD-306 is covered by the inbound shipment, so nothing is at risk
     check(
-        "PRD-306 conservatively flagged (starts after theoretical shortage date)",
-        "PRD-306" in prod_ids_at_risk,
-        "PRD-306 in at-risk list (conservative warning)",
+        "No order at risk (SHP-441 arrives before PRD-306 starts)",
+        not prod_ids_at_risk,
+        "[] (no at-risk orders)",
         prod_ids_at_risk
     )
 
