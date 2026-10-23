@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+chroma_db
+*.log
+
+# secrets / private notes: never bake into an image
+.env
+keys.md
+understand.md

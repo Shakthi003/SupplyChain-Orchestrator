@@ -31,7 +31,10 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+import time
+
 from core.config import DATABASE_URL, GEMINI_API_KEY, GEMINI_MODEL
+from core.logging_config import get_logger
 from core.models import DisruptionEvent, DisruptionStatus
 from tools.impact_tool import run_impact_analysis_tool
 from tools.planning_tool import run_recovery_planning_tool
@@ -45,6 +48,8 @@ from google.genai import types as genai_types
 # a quick 503 is retried cheaply, a hung connection is cut off after 20 s.
 GEMINI_TIMEOUT_MS = 20_000   # per attempt
 GEMINI_ATTEMPTS = 3          # including the first try
+
+log = get_logger("agent")
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +83,7 @@ def validate_event(state: dict) -> dict:
 
             if not event:
                 print(f"  [ERROR] Event {event_id} not found in database.")
+                log.warning("event not found", extra={"event_id": event_id})
                 return {
                     "event_valid": False,
                     "error": f"Event {event_id} not found.",
@@ -122,6 +128,7 @@ def validate_event(state: dict) -> dict:
 
     except Exception as e:
         print(f"  [ERROR] Validation failed: {e}")
+        log.error("event validation failed", extra={"event_id": event_id, "error": str(e)})
         return {
             "event_valid": False,
             "error": str(e),
@@ -150,6 +157,7 @@ def run_impact(state: dict) -> dict:
 
     if result.get("error"):
         print(f"  [ERROR] Impact analysis failed: {result['error']}")
+        log.error("impact analysis failed", extra={"event_id": state["event_id"], "error": result["error"]})
         return {"impact_result": result, "error": result["error"]}
 
     print(f"  Part              : {result['part_id']} ({result['part_name']})")
@@ -184,6 +192,7 @@ def run_planning(state: dict) -> dict:
 
     if result.get("error"):
         print(f"  [ERROR] Planning failed: {result['error']}")
+        log.error("planning failed", extra={"event_id": state["event_id"], "error": result["error"]})
         return {"planning_result": result, "error": result["error"]}
 
     print(f"  Options generated : {result['total_options']}")
@@ -243,6 +252,7 @@ def fetch_graph(state: dict) -> dict:
 
     except Exception as e:
         print(f"  [WARN] Graph query failed (Neo4j may not be running): {e}")
+        log.warning("graph query failed", extra={"event_id": state["event_id"], "error": str(e)})
         print(f"  Continuing without graph data...")
         return {
             "graph_result": {
@@ -283,6 +293,7 @@ def fetch_documents(state: dict) -> dict:
 
     if result.get("error"):
         print(f"  [WARN] Document retrieval had issues: {result['error']}")
+        log.warning("document retrieval failed", extra={"event_id": state["event_id"], "error": result["error"]})
     else:
         print(f"  Sources retrieved: {result['sources_used']}")
         print(f"  [OK] Documents retrieved.")
@@ -418,11 +429,16 @@ Structure it as:
                 ),
             ),
         )
+        t0 = time.perf_counter()
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt
         )
         explanation = response.text
+        log.info("llm explanation generated", extra={
+            "event_id": event_id, "model": GEMINI_MODEL, "chars": len(explanation),
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        })
         print(f"  [OK] Explanation generated ({len(explanation)} characters).")
         return {"explanation": explanation, "error": None}
 
@@ -437,5 +453,8 @@ Structure it as:
             f"Recommended action: {recommended}."
         )
         print(f"  [WARN] Gemini call failed: {e}")
+        log.warning("llm call failed, using fallback summary", extra={
+            "event_id": event_id, "model": GEMINI_MODEL, "error": str(e)[:300],
+        })
         print(f"  Using fallback summary.")
         return {"explanation": fallback, "error": None}
