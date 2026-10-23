@@ -10,7 +10,7 @@ load_dotenv()
 
 # --- LLM ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = "gemini-3.8-flash"   # Free tier, fast
+GEMINI_MODEL = "gemini-3.5-flash-lite"   # Free tier; most reliable in our probes (4/4 OK, ~2.5s)
 
 # --- PostgreSQL ---
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
