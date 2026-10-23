@@ -88,13 +88,58 @@ def evaluate_case(case: dict, tol_days: int, with_llm: bool) -> dict:
     }
 
     # --- Full agent incl. LLM (optional: slow, needs the Gemini key) ------------------
+    # Kept out of row["latency_s"] so it does not distort the tool-latency average.
     if with_llm:
         from agents.runner import run_analysis
         state, dt = timed(run_analysis, eid)
-        text = state.get("explanation", "")
-        row["latency_s"]["full_agent"] = round(dt, 2)
+        text = state.get("explanation", "") or ""
+        row["full_agent_latency_s"] = round(dt, 2)
         row["agent_success"] = bool(state.get("event_valid")) and not text.startswith("[AI explanation unavailable")
+        row["explanation_check"] = check_explanation(
+            text, state.get("impact_result") or {}, state.get("planning_result") or {}, exp
+        )
+        row["explanation_text"] = text
     return row
+
+
+def _numbers_in(obj, out: set) -> set:
+    """Every number found anywhere in an engine result (dicts/lists/values)."""
+    if isinstance(obj, bool):
+        return out
+    if isinstance(obj, (int, float)):
+        out.add(round(float(obj), 2))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            _numbers_in(v, out)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            _numbers_in(v, out)
+    return out
+
+
+def check_explanation(text: str, impact: dict, plan: dict, exp: dict) -> dict:
+    """
+    Cheap, honest checks on the LLM text. They do NOT judge writing quality.
+      grounded_dollars : every $ amount in the text equals some number the engines produced
+      ungrounded       : the $ amounts that do not (may be legitimate derived figures,
+                         e.g. a penalty % applied to a PO value -- inspect by hand)
+      mentions_recommendation : the recommended option id appears
+      cites_evidence   : at least one expected contract phrase / doc id appears
+    """
+    import re
+    if text.startswith("[AI explanation unavailable"):
+        return {"skipped": "LLM fallback text, nothing to check"}
+    known = _numbers_in(impact, set()) | _numbers_in(plan, set())
+    amounts = [float(m.replace(",", "")) for m in re.findall(r"\$\s?([0-9][0-9,]*(?:\.[0-9]+)?)", text)]
+    ungrounded = sorted({a for a in amounts if round(a, 2) not in known})
+    low = text.lower()
+    return {
+        "dollar_amounts_found": len(amounts),
+        "grounded_dollars": not ungrounded,
+        "ungrounded": ungrounded,
+        "mentions_recommendation": exp["recommended_option"].lower() in low,
+        "cites_evidence": any(p.lower() in low for p in exp["evidence_phrases"] + exp["evidence_docs"]),
+    }
 
 
 def summarize(rows: list[dict]) -> dict:
@@ -122,6 +167,24 @@ def summarize(rows: list[dict]) -> dict:
         "evidence_coverage": mean(r["retrieval"]["evidence_coverage"] for r in rows),
         "tool_error_rate": sum(r["tool_errors"] for r in rows) / calls,
         "mean_tool_latency_s": mean(v for r in rows for v in r["latency_s"].values()),
+        **_llm_summary(rows),
+    }
+
+
+def _llm_summary(rows: list[dict]) -> dict:
+    """Only present when the run used --with-llm."""
+    llm = [r for r in rows if "agent_success" in r]
+    if not llm:
+        return {}
+    checked = [r["explanation_check"] for r in llm if "skipped" not in r["explanation_check"]]
+    return {
+        "llm_runs": len(llm),
+        "llm_success_rate": sum(r["agent_success"] for r in llm) / len(llm),
+        "llm_checked_explanations": len(checked),
+        "llm_grounded_dollars_rate": (sum(c["grounded_dollars"] for c in checked) / len(checked)) if checked else None,
+        "llm_mentions_recommendation_rate": (sum(c["mentions_recommendation"] for c in checked) / len(checked)) if checked else None,
+        "llm_cites_evidence_rate": (sum(c["cites_evidence"] for c in checked) / len(checked)) if checked else None,
+        "llm_mean_full_agent_latency_s": mean(r["full_agent_latency_s"] for r in llm),
     }
 
 
@@ -151,6 +214,23 @@ def print_report(summary: dict, rows: list[dict]) -> None:
         if r["options_feasible"] < 3:
             bits.append(f"only {r['options_feasible']} feasible option(s) of {r['options_generated']}")
         print(f"  {r['event_id']}: " + ("; ".join(bits) if bits else "all checks matched"))
+    if "llm_runs" in summary:
+        print("--- Full agent (Gemini) ---")
+        print(f"{'Agent runs completed':<42}{pct(summary['llm_success_rate']):>10}  ({summary['llm_runs']} runs)")
+        print(f"{'Explanations checked (not fallback)':<42}{summary['llm_checked_explanations']:>10}")
+        print(f"{'Every $ amount found in engine numbers':<42}{pct(summary['llm_grounded_dollars_rate']):>10}")
+        print(f"{'Mentions recommended option':<42}{pct(summary['llm_mentions_recommendation_rate']):>10}")
+        print(f"{'Cites a source document':<42}{pct(summary['llm_cites_evidence_rate']):>10}")
+        print(f"{'Mean full-agent time (s)':<42}{summary['llm_mean_full_agent_latency_s']:>10.1f}")
+        print("(Automatic checks only. They do NOT judge writing quality.)")
+        for r in rows:
+            chk = r.get("explanation_check", {})
+            if "skipped" in chk:
+                print(f"  {r['event_id']}: explanation skipped -> {chk['skipped']}")
+            elif chk.get("ungrounded"):
+                print(f"  {r['event_id']}: $ amounts NOT in engine numbers (check by hand): {chk['ungrounded']}")
+        print()
+
 
 
 def main():
