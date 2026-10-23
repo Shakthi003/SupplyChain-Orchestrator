@@ -104,4 +104,4 @@ h1,h2,h3{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;color:var(--
 .sc-src{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:0 8px 8px 0;font-size:13px;font-weight:600;}
 .sc-src:before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--indigo);margin-right:9px;}
 @media (max-width:900px){.sc-metrics{grid-template-columns:repeat(2,1fr);}.sc-flow{flex-direction:column;}.sc-link{width:100%;height:30px;}}
-[data-testid="stForm"] [data-baseweb="input"],[data-testid="stForm"] [data-baseweb="textarea"],[data-testid="stForm"] [data-baseweb="select"]>div{border:1px solid #2F3FD0 !important;border-radius:10px;background:#fff;}
+[data-testid="stTextInputRootElement"],[data-testid="stTextAreaRootElement"],[data-testid="stSelectbox"] *:has(> input[role="combobox"]){border:1px solid #2F3FD0 !important;border-radius:10px;background:#fff;}
