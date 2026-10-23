@@ -685,6 +685,34 @@ Lessons:
 
 Caveats: two cases is too few to say "accurate". `--with-llm` was later run once (2 cases): 100% completed, all $ amounts grounded, but hand-reading found the AI wrongly says the Bosch order prevents the EVT-002 shortage (it arrives after stock-out) and shows "0 units" / "Rank #0" quirks from the planner. Only 2 samples, automatic checks only. The 1-day date gap is a day-counting convention difference we did not resolve.
 
+### The first `--with-llm` run (full agent, real Gemini)
+
+Ran the whole agent on both cases. Two kinds of result:
+
+**Automatic checks (2 cases):** both runs completed with real Gemini text (not the fallback). Every dollar figure in the text was found in the engine numbers. Both texts named the recommended option and cited a source document. Mean time 11.8 s per case. These checks do NOT judge writing quality, and 2 samples is very few.
+
+**Reading the text by hand found 3 problems the checks could not see:**
+1. EVT-002: the AI says buying from Bosch "prevents the shortage". Not true. Stock runs out Nov 3, Bosch arrives about Nov 6, so a gap of about 3 days remains. The AI copied this from the planner, which calls the option "feasible".
+2. EVT-001: the AI says OPT-B1 transfers "0 units". That comes from the planner output.
+3. EVT-002: the AI prints "Rank #0" for an infeasible option. Also from the planner output.
+
+Lesson: the AI added no new wrong numbers. It repeats the planner's flaws. So the fix belongs in the planner first, then the prompt.
+
+### Decisions discussed after the run (PLANNED, NOT YET BUILT)
+
+**Late supplier (Bosch on EVT-002): mark it "partial", not infeasible.**
+- If it were infeasible, EVT-002 would have no feasible option and the planner would hide the best action available.
+- Bosch still helps: the gap shrinks from about 15 days to about 3.
+- Plan: add a `fully_closes_gap` flag and a `residual_gap_days` figure to each option. Keep OPT-D1 recommended but label it "Partial: gap shortens from about 15 days to about 3". Tell the AI prompt never to say "prevents" or "bridges" when the gap is not fully closed.
+- The EVT-002 label in `cases.json` would change from "feasible" to "partial, about 3 days left". This must be justified by reasoning (the dates), not by copying the engine output.
+
+**Stock allocation: keep first-come-first-served by planned start date, but show it.**
+- Reason to keep: simple, easy to explain, fits the "explainable" goal.
+- Known weakness: an early low-value order can use up stock a later high-value order needs. Priority by order value or penalty would fix that, but it is a business rule nobody has validated.
+- Plan: print "Stock allocated in order of planned start date" as a visible assumption in each result (UI and AI text). This also closes the partial "every result includes assumptions" item.
+
+Status: both are agreed in principle and written down here. Neither is coded yet.
+
 ### Logging and validation
 
 - `core/logging_config.py`: one JSON line per event, with a request id that also comes back in the `X-Request-ID` header
@@ -703,7 +731,7 @@ Wrote `Dockerfile`, `docker-compose.yml` and `scripts/docker_seed.py`. Docker De
 
 ### Still open
 
-- The first-come-first-served stock allocation rule has not been confirmed as sensible by anyone
-- The alternate supplier for EVT-002 arrives after the stock-out but is still called feasible
+- First-come-first-served stock allocation: decided to keep it and show it as an assumption (not coded yet)
+- The alternate supplier for EVT-002 arrives after the stock-out but is still called feasible: decided to mark it "partial" with a residual gap (not coded yet). The AI text is wrong on this point until then
 - No from-scratch install test, no Docker test, `--with-llm` run only once on 2 cases
 - Stage 1 leftovers (user stories) not written
