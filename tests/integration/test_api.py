@@ -146,3 +146,53 @@ def test_decisions_endpoint(client):
     r = client.get("/decisions", params={"event_id": "EVT-001"})
     assert r.status_code == 200
     assert isinstance(r.json(), list)
+
+
+# --- Stage 8: input validation + structured logging -------------------------
+
+@pytest.mark.parametrize("bad_id", ["EVT%20001", "EVT.001", "x" * 40])
+def test_malformed_ids_rejected_before_any_lookup(client, bad_id):
+    assert client.get(f"/events/{bad_id}").status_code == 422
+    assert client.get(f"/inventory/{bad_id}").status_code == 422
+    assert client.get("/decisions", params={"event_id": bad_id}).status_code == 422
+
+
+def test_overlong_rationale_rejected(client, saved):
+    r = client.post("/events/EVT-001/decision", json={
+        "approved": True, "reviewer_name": "A", "rationale": "x" * 2001})
+    assert r.status_code == 422
+    assert saved == []
+
+
+def test_every_response_carries_a_request_id(client):
+    r = client.get("/health")
+    assert len(r.headers["X-Request-ID"]) >= 8
+    # a caller-supplied id is echoed back, so one id can be followed across systems
+    r = client.get("/health", headers={"X-Request-ID": "trace-123"})
+    assert r.headers["X-Request-ID"] == "trace-123"
+
+
+def test_request_log_line_is_json_with_request_id(client):
+    import json
+    import logging
+
+    lines = []
+
+    class Grab(logging.Handler):
+        def emit(self, record):
+            lines.append(self.format(record))   # format now, like a real handler
+
+    from core.logging_config import JsonFormatter
+    h = Grab()
+    h.setFormatter(JsonFormatter())
+    logger = logging.getLogger("sco.api")
+    logger.addHandler(h)
+    try:
+        client.get("/health", headers={"X-Request-ID": "abc12345"})
+    finally:
+        logger.removeHandler(h)
+
+    entry = json.loads(lines[-1])
+    assert entry["msg"] == "request" and entry["path"] == "/health"
+    assert entry["status"] == 200 and entry["request_id"] == "abc12345"
+    assert "duration_ms" in entry

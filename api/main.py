@@ -12,20 +12,31 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import time
+import uuid
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Path, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from api.schemas import DecisionRequest
 from core.config import DATABASE_URL
+from core.logging_config import get_logger, request_id_var
 from core.models import DisruptionEvent, Inventory, Part, DisruptionStatus
 from agents.runner import run_analysis
 from agents.decision import submit_decision, DecisionError
 from tools.impact_tool import run_impact_analysis_tool
 from tools.planning_tool import run_recovery_planning_tool
 from tools.audit_tool import get_past_decisions
+
+log = get_logger("api")
+
+# Event / part ids look like EVT-001, PRT-104: letters, digits, dash, underscore only.
+RecordId = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{1,20}$", description="Record id, e.g. EVT-001")]
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -34,8 +45,9 @@ async def lifespan(_app: FastAPI):
     try:
         from retrieval.retriever import _get_collection
         _get_collection()
+        log.info("document search warmed up")
     except Exception as e:
-        print(f"[WARN] Could not warm up document search: {e}")
+        log.warning("could not warm up document search", extra={"error": str(e)})
     yield
 
 
@@ -47,6 +59,28 @@ app = FastAPI(
 )
 
 _engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Give every request an id (returned in X-Request-ID) and log one line per request."""
+    rid = request.headers.get("x-request-id", "")[:32] or uuid.uuid4().hex[:8]
+    token = request_id_var.set(rid)
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        # Full detail goes to the log; the client only gets a generic message.
+        log.exception("unhandled error", extra={"method": request.method, "path": request.url.path})
+        response = JSONResponse({"detail": f"Internal error. Quote request id {rid}."}, status_code=500)
+    response.headers["X-Request-ID"] = rid
+    log.info("request", extra={
+        "method": request.method, "path": request.url.path,
+        "status": response.status_code,
+        "duration_ms": round((time.perf_counter() - start) * 1000),
+    })
+    request_id_var.reset(token)
+    return response
 
 
 def _event_dict(e: DisruptionEvent) -> dict:
@@ -83,12 +117,12 @@ def list_events() -> list[dict]:
 
 
 @app.get("/events/{event_id}")
-def get_event(event_id: str) -> dict:
+def get_event(event_id: RecordId) -> dict:
     return _get_event_or_404(event_id)
 
 
 @app.post("/events/{event_id}/analyze")
-def analyze_event(event_id: str) -> dict:
+def analyze_event(event_id: RecordId) -> dict:
     """
     Run the full pipeline (impact, planning, graph, documents, AI explanation).
     Does NOT record any decision -- a human must call /decision afterwards.
@@ -99,7 +133,17 @@ def analyze_event(event_id: str) -> dict:
 
     state = run_analysis(event_id)
     if not state.get("event_valid"):
+        log.warning("analysis rejected", extra={"event_id": event_id, "error": state.get("error")})
         raise HTTPException(422, state.get("error") or "Event could not be validated.")
+    explanation = state.get("explanation") or ""
+    log.info("analysis complete", extra={
+        "event_id": event_id,
+        "has_shortage": (state.get("impact_result") or {}).get("has_shortage"),
+        "recommended": (state.get("planning_result") or {}).get("recommended_option_id"),
+        "graph_ok": not (state.get("graph_result") or {}).get("error"),
+        "docs_ok": not (state.get("documents_result") or {}).get("error"),
+        "llm_fallback": explanation.startswith("[AI explanation unavailable"),
+    })
     return {
         "event_id": event_id,
         "event": event,
@@ -113,7 +157,7 @@ def analyze_event(event_id: str) -> dict:
 
 
 @app.post("/events/{event_id}/decision")
-def record_decision(event_id: str, body: DecisionRequest) -> dict:
+def record_decision(event_id: RecordId, body: DecisionRequest) -> dict:
     """
     Record the human approve/reject decision in the audit log.
 
@@ -129,7 +173,7 @@ def record_decision(event_id: str, body: DecisionRequest) -> dict:
 
     analysis = {"event_id": event_id, "impact_result": impact, "planning_result": planning}
     try:
-        return submit_decision(
+        saved = submit_decision(
             analysis=analysis,
             approved=body.approved,
             reviewer_name=body.reviewer_name,
@@ -137,13 +181,24 @@ def record_decision(event_id: str, body: DecisionRequest) -> dict:
             chosen_option_id=body.chosen_option_id,
         )
     except DecisionError as e:
+        log.warning("decision rejected", extra={"event_id": event_id, "error": str(e)})
         raise HTTPException(422, str(e))
     except RuntimeError as e:
+        log.error("decision could not be saved", extra={"event_id": event_id, "error": str(e)})
         raise HTTPException(500, str(e))
+    # Audit trail in the log too (ids only: the rationale text lives in the database).
+    log.info("decision recorded", extra={
+        "event_id": event_id, "decision_id": saved["decision_id"],
+        "approved": saved["approved"], "chosen_option_id": saved["chosen_option_id"],
+    })
+    return saved
 
 
 @app.get("/decisions")
-def list_decisions(event_id: str | None = None, limit: int = 50) -> list[dict]:
+def list_decisions(
+    event_id: str | None = Query(None, pattern=r"^[A-Za-z0-9_-]{1,20}$"),
+    limit: int = 50,
+) -> list[dict]:
     """Audit log, newest first."""
     result = get_past_decisions(event_id=event_id, limit=min(max(limit, 1), 200))
     if result and "error" in result[0]:
@@ -152,7 +207,7 @@ def list_decisions(event_id: str | None = None, limit: int = 50) -> list[dict]:
 
 
 @app.get("/inventory/{part_id}")
-def get_inventory(part_id: str) -> dict:
+def get_inventory(part_id: RecordId) -> dict:
     with Session(_engine) as session:
         part = session.get(Part, part_id)
         if not part:

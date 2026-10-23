@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 class DecisionRequest(BaseModel):
     approved: bool = Field(..., description="True = approve, False = reject. No default.")
-    reviewer_name: str = Field(..., min_length=1)
-    rationale: str = Field(..., min_length=1)
+    reviewer_name: str = Field(..., min_length=1, max_length=100)
+    rationale: str = Field(..., min_length=1, max_length=2000)
     chosen_option_id: Optional[str] = Field(
-        None, description="Defaults to the system-recommended option."
+        None, max_length=20, description="Defaults to the system-recommended option."
     )
