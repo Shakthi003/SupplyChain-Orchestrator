@@ -155,32 +155,32 @@
 - [x] Compare results against simple baseline (evaluation/baseline.py: "late = shortage, flag everything")
 - [x] Add structured logging (core/logging_config.py: JSON lines, request id on every API call via X-Request-ID, LOG_LEVEL/LOG_FILE env vars; API + agent steps + LLM call timings. CLI print() output kept)
 - [x] Add error handling and input validation (id format checks on all path/query ids, max lengths on decision fields, unhandled errors return a request id instead of a stack trace; 32 tests pass)
-- [ ] Write documentation (architecture, decisions, setup guide)
+- [x] Write documentation (docs/architecture.md with diagrams; README setup guide + limitations; design decisions in README and Progress.md)
 - [-] Dockerize the full stack -- Dockerfile + docker-compose.yml + scripts/docker_seed.py WRITTEN BUT NEVER BUILT OR RUN (Docker is not installed on the dev machine). Only checked: YAML parses, seed script compiles
 
 ---
 
 ## 🔲 Stage 9 — Portfolio Release
 
-- [ ] Finalize README with setup instructions
-- [ ] Create architecture diagram
+- [x] Finalize README with setup instructions (local setup written from the path actually used; not tested on a clean machine)
+- [x] Create architecture diagram (mermaid, in README and docs/architecture.md)
 - [ ] Record demo
-- [ ] Publish evaluation results with honest labeling ("simulated data")
-- [ ] Document limitations clearly
+- [x] Publish evaluation results with honest labeling ("simulated data") -- in README; only deterministic parts measured
+- [x] Document limitations clearly (README "Known limitations")
 - [ ] Push to public repository
 
 ---
 
 ## 📌 MVP Definition of Done Checklist
 
-- [ ] User can submit a supplier delay event and see affected parts and downstream orders
-- [ ] System distinguishes a late shipment from an actual projected shortage
-- [ ] Every risk result includes supporting records and stated assumptions
-- [ ] At least 3 recovery options can be compared
-- [ ] Chosen recommendation passes deterministic feasibility checks
-- [ ] User can approve or reject a proposed action and the decision is logged
-- [ ] Repeatable evaluation suite compares system with a baseline
-- [ ] Project runs from documented setup instructions using synthetic data
+- [ ] User can SUBMIT a supplier delay event -- NOT MET: the user can only pick from events already in the database (no entry form). They can then see affected parts and downstream orders.
+- [x] System distinguishes a late shipment from an actual projected shortage (EVT-001 late/no shortage vs EVT-002 real shortage; checked against hand-derived labels)
+- [ ] Every risk result includes supporting records and stated assumptions -- PARTLY: Evidence tab shows retrieved contract/policy text and the caption states the graph/impact difference; assumptions (e.g. first-come-first-served stock allocation) are in docs, not shown per result in the UI
+- [x] At least 3 recovery options can be compared (EVT-001: 4 feasible; EVT-002: 3 generated, 1 feasible, 2 shown as infeasible with reasons)
+- [x] Chosen recommendation passes deterministic feasibility checks (submit_decision rejects non-feasible options; tested). Known gap: alternate-supplier option does not compare its arrival to the stock-out date
+- [x] User can approve or reject a proposed action and the decision is logged (audit log; verified in the browser)
+- [x] Repeatable evaluation suite compares system with a baseline (python -m evaluation.run_eval; only 2 cases, deterministic parts)
+- [ ] Project runs from documented setup instructions -- NOT VERIFIED: the steps are written from the path actually used, but never run on a clean machine; Docker files never built
 
 ---
 

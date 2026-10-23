@@ -526,7 +526,7 @@ The pipeline continues to completion regardless.
 - Moved the human approval out of the AI workflow, so the workflow now ends after the explanation step
 - Built a FastAPI backend and a Streamlit UI on top of the existing engines
 - Wrote 16 automated tests (all passing)
-- Set up git (7 commits so far)
+- Set up git (the project now has more commits; see Session 10)
 - Fixed a real bug: results changed from day to day because the code read the computer clock
 - Investigated Gemini timeouts (504/503 errors)
 
@@ -647,3 +647,63 @@ Same data in, same answer out only holds if the date is also an input.
 - [X] Restart uvicorn: done by the user, UI now shows 13.1 days coverage
 
 ---
+
+## Session 10 - Stage 8: Evaluation, Hardening, Release docs
+
+### What we did
+
+- Switched the Gemini model to `gemini-3.5-flash-lite` after the old one kept failing with 503/504
+- Added a second scenario, EVT-002 (14-day delay on PRT-112): a real shortage
+- Restyled the UI (light theme, "stock runway" timeline, option cards) and moved the CSS into `app/style.css`
+- Built an evaluation harness with hand-derived labels and a naive baseline
+- **The evaluation found a real bug in the engine, which we fixed**
+- Added structured JSON logging with request ids, and input validation
+- Wrote Docker files (never run) and the README and architecture docs
+
+### The bug the evaluation found
+
+On EVT-001 the engine said "PRD-306 is at risk, $20,300 exposure". The labels, worked out by hand, said no order is at risk. Why: the engine knew stock would run out on Nov 2 and PRD-306 starts Nov 4, but it ignored that shipment SHP-441 (200 units) lands on Oct 30, before PRD-306 starts.
+
+Fix: when going through orders by start date, add every shipment that has arrived by then to the stock pool.
+
+Lessons:
+- A comment in the code called this flag "intentional and conservative". It was a bug that had been explained away. Always ask what a comment is justifying.
+- Labels must come from a different method than the code being tested. We used hand calculation plus a separate day-by-day simulation.
+- One of my own first labels was wrong (I forgot that expediting is also infeasible on EVT-002). Labels can be wrong too; the disagreement is the signal to investigate, in both directions.
+- The scorecard before and after: order precision 50% to 100%, mean exposure error $10,150 to $0.
+
+### Results (2 synthetic cases, deterministic parts only)
+
+| Metric | System | Naive baseline |
+|---|---|---|
+| Shortage verdict correct | 100% | 50% |
+| At-risk order precision / recall | 100% / 100% | 17% / 100% |
+| Mean exposure error | $0 | $35,265 |
+| Stock-out date error | 1 day | n/a |
+| Recommended option correct | 100% | n/a |
+| Document Recall@1 / @3 | 100% / 100% | n/a |
+
+Caveats: two cases is too few to say "accurate". The `--with-llm` mode has never been run, so the AI explanation has no measured quality. The 1-day date gap is a day-counting convention difference we did not resolve.
+
+### Logging and validation
+
+- `core/logging_config.py`: one JSON line per event, with a request id that also comes back in the `X-Request-ID` header
+- Ids in URLs are checked (letters, digits, dash, underscore, max 20), decision fields have length limits, and a crash returns "Internal error, request id X" instead of a stack trace
+- 6 new tests. Total: 32 passing.
+
+### Docker: attempted, not working
+
+Wrote `Dockerfile`, `docker-compose.yml` and `scripts/docker_seed.py`. Docker Desktop could not be installed: the WSL install hung for 5+ minutes with no progress. We cancelled it. So the Docker files are **never built or run**. Only checked that the YAML parses and the script compiles.
+
+### Other things found
+
+- The data generator's printed notes still said "PRD-306 is AT RISK" after the fix. Corrected.
+- A suspected contract inconsistency (3% vs 10% for 8-14 days) turned out to be two different suppliers. Not a bug.
+- The what-if simulator stays dropped.
+
+### Still open
+
+- The first-come-first-served stock allocation rule has not been confirmed as sensible by anyone
+- The alternate supplier for EVT-002 arrives after the stock-out but is still called feasible
+- No from-scratch install test, no Docker test, no `--with-llm` evaluation run
+- Stage 1 leftovers (user stories) not written

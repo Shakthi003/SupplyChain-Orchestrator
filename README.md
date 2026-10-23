@@ -1,91 +1,156 @@
-﻿# SupplyChain Orchestrator
+# SupplyChain Orchestrator
 
-> An Explainable Agentic AI Platform for Supply Chain Risk and Recovery
+> An explainable, human-in-the-loop AI assistant for supply chain disruption risk and recovery planning.
+> **All data is synthetic.** This is a portfolio prototype, not a production system.
 
-## What This Project Does
+When a supplier ships late, the hard question is not "is it late?" but "will we actually run out, which orders break, and what should we do?" This project answers that with a clear division of labour:
 
-When a supplier is delayed, this platform:
-1. Detects the disruption
-2. Traces which parts, production orders, and customer orders are affected
-3. Estimates if there's an actual shortage (not just a late shipment)
-4. Proposes ranked recovery options (use stock / transfer / expedite / alternate supplier)
-5. Explains every recommendation with evidence
-6. Asks a human to approve before any action is taken
+| Part | Who does it | Why |
+|---|---|---|
+| **Numbers** (stock cover, stock-out date, at-risk orders, costs, option ranking) | Deterministic Python engines | Same input gives the same output, and every number can be checked |
+| **Words** (the briefing a planner reads) | An LLM (Gemini) | It only explains figures the engines produced. It never calculates |
+| **Decisions** (approve / reject) | A human | The system never executes anything. Decisions are written to an audit log |
 
-## Tech Stack
+## What you see
 
-| Layer | Technology |
-|-------|-----------|
-| Language | Python 3.11 |
-| Package Manager | uv |
-| UI | Streamlit |
-| API | FastAPI |
-| Relational DB | PostgreSQL 16 |
-| Graph DB | Neo4j Desktop |
-| Vector Store | ChromaDB |
-| LLM | Gemini (free tier; model set in core/config.py) |
-| Agent Orchestration | LangGraph + LangChain |
-| Optimization | OR-Tools |
+Pick a disruption event, click **Run analysis**, and get:
 
-## Project Structure
+- **Impact:** stock coverage vs. the delay, stock-out date, the production and customer orders at risk, and the money exposed
+- **Recovery options:** use stock, transfer between warehouses, expedite, or switch to an alternate supplier, each checked for feasibility, costed and ranked
+- **Impact chain:** the supplier-to-part-to-product-to-customer path from a graph database
+- **Evidence:** contract clauses and policies retrieved from a document index
+- **AI explanation:** a written briefing that cites that evidence
+- **Decision:** approve or reject with a required name and rationale, recorded in an audit log
 
-```
-supplychain-orchestrator/
-â”œâ”€â”€ app/                    # Streamlit UI
-â”œâ”€â”€ api/                    # FastAPI routes and schemas
-â”œâ”€â”€ core/
-â”‚   â”œâ”€â”€ impact_analysis/    # Inventory coverage and dependency impact
-â”‚   â”œâ”€â”€ forecasting/        # Demand and risk models
-â”‚   â”œâ”€â”€ optimization/       # Recovery planning and constraints
-â”‚   â””â”€â”€ rules/              # Deterministic business rules
-â”œâ”€â”€ agents/                 # LangGraph workflows and tool routing
-â”œâ”€â”€ retrieval/              # Document ingestion, indexing, RAG
-â”œâ”€â”€ graph/                  # Neo4j schema and graph queries
-â”œâ”€â”€ tools/                  # MCP tools and service adapters
-â”œâ”€â”€ data/
-â”‚   â”œâ”€â”€ synthetic/          # Generated demo data
-â”‚   â””â”€â”€ scenarios/          # Known disruption test cases
-â”œâ”€â”€ evaluation/             # Metrics, baselines, scenario tests
-â”œâ”€â”€ tests/                  # Unit, integration, and workflow tests
-â”œâ”€â”€ docs/                   # Architecture, decisions, diagrams
-â”œâ”€â”€ scripts/                # Data generation and local setup
-â”œâ”€â”€ pyproject.toml
-â”œâ”€â”€ .env.example
-â””â”€â”€ README.md
+Two scenarios ship with the data:
+
+| Event | Situation | Expected result |
+|---|---|---|
+| `EVT-001` | A shipment of PRT-104 is 4 days late | Late but **no shortage**: stock lasts about 13 days and the shipment lands first. Use stock |
+| `EVT-002` | A shipment of PRT-112 is 14 days late | **Real shortage** from about Nov 3. One production order and one customer order ($10,750) at risk. Alternate supplier recommended |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[Streamlit UI] -->|HTTP| API[FastAPI]
+    API --> AG[LangGraph agent]
+    AG --> T1[Impact tool]
+    AG --> T2[Planning tool]
+    AG --> T3[Graph tool]
+    AG --> T4[Retrieval tool]
+    AG --> LLM[Gemini: explanation only]
+    T1 --> PG[(PostgreSQL)]
+    T2 --> PG
+    T3 --> NEO[(Neo4j)]
+    T4 --> CH[(ChromaDB)]
+    API -->|approve / reject| AUD[(Audit log in PostgreSQL)]
 ```
 
-## Setup Instructions
+More detail, including the analysis sequence, is in [`docs/architecture.md`](docs/architecture.md).
 
-### 1. Prerequisites
-- Python 3.11+
-- uv (package manager)
-- PostgreSQL 16
-- Neo4j Desktop
+## Does it work? Evaluation results
 
-### 2. Clone and Install
+`python -m evaluation.run_eval` scores the deterministic parts against hand-derived labels and a naive baseline ("a late shipment means a shortage, so flag everything").
+
+| Metric | System | Naive baseline |
+|---|---|---|
+| Shortage verdict correct | 100% | 50% |
+| At-risk production orders: precision / recall | 100% / 100% | 17% / 100% |
+| Exposure error (mean) | $0 | $35,265 |
+| Stock-out date error | 1 day | n/a |
+| Recommended option correct | 100% | n/a |
+| Infeasible options identified | 100% | n/a |
+| Document retrieval Recall@1 / @3 | 100% / 100% | n/a |
+| Tool error rate | 0% | n/a |
+
+**Read these numbers carefully:**
+
+- There are **only 2 labeled cases**, on **synthetic data I generated myself**. "100%" means the engine agrees with an independent calculation on these two cases. It does not mean it would be 100% accurate on real supply chains.
+- The labels were worked out by hand from the raw database rows and cross-checked with a separate day-by-day stock simulation. They were not copied from the engine. The derivations are in [`evaluation/cases.json`](evaluation/cases.json).
+- The evaluation found a **real bug** in my own engine: it ignored shipments that arrive before an order starts, so it falsely flagged an order on EVT-001 ($20,300 of false exposure). That is fixed, and a regression test now guards it.
+- The 1-day stock-out gap is a day-counting convention difference between the engine and the cross-check. I have not decided which convention is better.
+- The document check covers only the penalty-clause lookup (2 queries).
+- The evaluation's `--with-llm` mode (full agent including Gemini) exists but **has not been run**. There are no measured numbers for the quality of the AI explanation.
+
+## Known limitations
+
+- **Synthetic, tiny data:** 5 suppliers, 20 parts, 2 scenarios. Nothing here was tested on real data.
+- **Stock allocation is a simplification:** when stock is short, the engine gives it to orders in order of planned start, so the latest-starting order is the one flagged. Real planners may prioritise by customer, margin or penalty. This rule has not been validated with anyone who plans for a living.
+- **Recovery options are simple:** the alternate-supplier check looks at reliability and lead time. It does not compare the alternate's arrival date against the stock-out date (for EVT-002 the alternate arrives about Nov 6, after the Nov 3 stock-out, and the option is still called feasible).
+- **Contract clauses are synthetic and differ per supplier on purpose** (for example, the same 8-14 day delay costs 3% under SUP-004 and 10% under SUP-005). I suspected an inconsistency at one point and checked: it was two different suppliers, not an error.
+- **The LLM is a free-tier model that is sometimes overloaded.** When it fails, the UI shows a labeled fallback summary instead of an AI briefing. The model was switched once after repeated 503/504 errors. One successful run is not proof that failures are gone.
+- **The graph is a copy.** Neo4j does not update itself: re-run `scripts/load_graph.py` after the data changes.
+- **No authentication.** Anyone who can reach the API can record a decision. The reviewer name is whatever is typed.
+- **No forecasting or learning.** Consumption is a fixed schedule from open production orders. The `core/forecasting` and `core/rules` folders are empty placeholders.
+
+## Setup (local, without Docker)
+
+This is the path I actually ran. I have not tested a from-scratch install on a clean machine, so expect small gaps.
+
+**Prerequisites:** Python 3.11+, [uv](https://docs.astral.sh/uv/), PostgreSQL 16, Neo4j (I used Neo4j Desktop), a free [Gemini API key](https://aistudio.google.com/).
+
 ```bash
-git clone <repo-url>
-cd supplychain-orchestrator
+# 1. Install
 uv sync
-```
 
-### 3. Configure Environment
-```bash
+# 2. Configure: copy the template and fill in your keys and passwords
 cp .env.example .env
-# Edit .env with your actual keys and passwords
+
+# 3. Create tables and synthetic data (EVT-001, then EVT-002)
+uv run python scripts/init_db.py
+uv run python scripts/generate_data.py --reset
+uv run python scripts/add_scenario_2.py
+
+# 4. Build the document index (first run downloads a small embedding model)
+uv run python -m retrieval.embedder
+
+# 5. Load the graph (Neo4j must be running)
+uv run python scripts/load_graph.py
+
+# 6. Run (two terminals)
+uv run uvicorn api.main:app            # API docs at http://127.0.0.1:8000/docs
+uv run streamlit run app/main.py       # UI at http://localhost:8501
 ```
 
-### 4. Run
+`generate_data.py --reset` wipes the business tables. Do not run it after you have recorded decisions you want to keep.
+
+**Logs:** the API writes one JSON line per event to stderr, each with a request id (also returned in the `X-Request-ID` header). Set `LOG_LEVEL=DEBUG` for more detail, or `LOG_FILE=path` to also write a file.
+
+## Tests
+
 ```bash
-# API (terminal 1; first start takes ~30s to load the embedding model)
-uv run uvicorn api.main:app --reload
-
-# UI (terminal 2)
-uv run streamlit run app/main.py
-
-# Tests
 uv run pytest tests
 ```
 
-## Status
-ðŸš§ Under active development â€” prototype stage
+32 tests pass at the time of writing (about 2 minutes on my machine). They cover the API (with the LLM faked and the audit-log write captured, so the real log is never touched), input validation, request ids and log format, the metric functions, a regression check that `$` amounts render correctly in the UI, and the engine-vs-labels evaluation gate. The evaluation gate reads the real PostgreSQL and ChromaDB, so those must be running and seeded.
+
+## Docker: written, not tested
+
+[`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) and [`scripts/docker_seed.py`](scripts/docker_seed.py) describe a one-command stack (`docker compose up --build`). **I have never built or run them.** Docker could not be installed on the machine this was developed on (the WSL install hung). Only these checks were done: the compose file parses as YAML and the seed script compiles. Treat them as a starting point that probably needs fixes on first run. The likeliest trouble spots are the CPU-only PyTorch install, the Neo4j healthcheck, and the slow first start.
+
+## Project layout
+
+```
+app/          Streamlit UI (main.py + style.css)
+api/          FastAPI routes, request schemas, request-id middleware
+agents/       LangGraph workflow (analysis) and the human decision step
+core/         Deterministic engines: impact_analysis/, optimization/, clock, config, logging
+tools/        Thin adapters the agent calls (impact, planning, graph, retrieval, audit)
+graph/        Neo4j loader and queries
+retrieval/    Synthetic documents, embedder, search
+evaluation/   Labeled cases, metrics, baseline, runner
+scripts/      Data generation, scenario 2, graph loading, Docker seed
+tests/        Unit and integration tests
+docs/         Architecture notes
+```
+
+## Design decisions worth knowing
+
+- **One "as of" date.** Every calculation uses the event's detection date, not the live clock. Early on, results drifted from day to day (12.5, then 11.1, then 10.5 days of coverage) because the code read "today". If a result depends on "now", it is not reproducible.
+- **Approval is outside the AI workflow.** The workflow ends with a recommendation. The decision endpoint recomputes the numbers on the server and validates the choice, so a browser cannot submit fake options or costs.
+- **The what-if simulator was deliberately dropped.** It was scoped out to keep the project focused.
+
+## Tech stack
+
+Python, FastAPI, Streamlit, PostgreSQL, Neo4j, ChromaDB (sentence-transformers embeddings), LangGraph, Gemini, pytest.
