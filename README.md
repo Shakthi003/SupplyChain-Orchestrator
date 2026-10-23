@@ -71,7 +71,7 @@ More detail, including the analysis sequence, is in [`docs/architecture.md`](doc
 - The evaluation found a **real bug** in my own engine: it ignored shipments that arrive before an order starts, so it falsely flagged an order on EVT-001 ($20,300 of false exposure). That is fixed, and a regression test now guards it.
 - The 1-day stock-out gap is a day-counting convention difference between the engine and the cross-check. I have not decided which convention is better.
 - The document check covers only the penalty-clause lookup (2 queries).
-- The evaluation's `--with-llm` mode (full agent including Gemini) exists but **has not been run**. There are no measured numbers for the quality of the AI explanation.
+- `--with-llm` was run once on the 2 cases: both agent runs completed with real Gemini text (not the fallback), every dollar figure matched the engine numbers, both named the recommended option and cited a source (mean 11.8 s). That is automatic checking only, on 2 samples. Reading the text by hand found two faults: (1) for EVT-002 the AI says OPT-D1 "bridges the gap and prevents the shortage", but Bosch arrives about Nov 6 and stock runs out Nov 3, so that claim is not supported; (2) for EVT-001 it says OPT-B1 transfers "0 units" and prints "Rank #0" for an infeasible option, both inherited from the planner output. The AI repeats the planner's flaws; it does not add new numbers.
 
 ## Known limitations
 

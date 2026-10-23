@@ -683,7 +683,7 @@ Lessons:
 | Recommended option correct | 100% | n/a |
 | Document Recall@1 / @3 | 100% / 100% | n/a |
 
-Caveats: two cases is too few to say "accurate". The `--with-llm` mode has never been run, so the AI explanation has no measured quality. The 1-day date gap is a day-counting convention difference we did not resolve.
+Caveats: two cases is too few to say "accurate". `--with-llm` was later run once (2 cases): 100% completed, all $ amounts grounded, but hand-reading found the AI wrongly says the Bosch order prevents the EVT-002 shortage (it arrives after stock-out) and shows "0 units" / "Rank #0" quirks from the planner. Only 2 samples, automatic checks only. The 1-day date gap is a day-counting convention difference we did not resolve.
 
 ### Logging and validation
 
@@ -705,5 +705,5 @@ Wrote `Dockerfile`, `docker-compose.yml` and `scripts/docker_seed.py`. Docker De
 
 - The first-come-first-served stock allocation rule has not been confirmed as sensible by anyone
 - The alternate supplier for EVT-002 arrives after the stock-out but is still called feasible
-- No from-scratch install test, no Docker test, no `--with-llm` evaluation run
+- No from-scratch install test, no Docker test, `--with-llm` run only once on 2 cases
 - Stage 1 leftovers (user stories) not written

@@ -151,7 +151,7 @@
 - [x] Implement impact tracing metrics (precision, recall) -- found a real false positive on EVT-001 (PRD-306: inbound shipment ignored); FIXED in order_impact.py, EVT-001 now correctly shows no at-risk orders
 - [x] Implement shortage estimation metrics (date error: 1 day on EVT-002; calibration not done -- only 2 cases)
 - [x] Implement RAG quality metrics (Recall@1/@3, evidence coverage) -- penalty-clause lookup only, 2 queries
-- [x] Implement agent reliability metrics (tool error rate, latency; --with-llm adds full-agent success -- not yet run)
+- [x] Implement agent reliability metrics (tool error rate, latency; --with-llm adds full-agent success; run once on 2 cases, 100% completed)
 - [x] Compare results against simple baseline (evaluation/baseline.py: "late = shortage, flag everything")
 - [x] Add structured logging (core/logging_config.py: JSON lines, request id on every API call via X-Request-ID, LOG_LEVEL/LOG_FILE env vars; API + agent steps + LLM call timings. CLI print() output kept)
 - [x] Add error handling and input validation (id format checks on all path/query ids, max lengths on decision fields, unhandled errors return a request id instead of a stack trace; 32 tests pass)
