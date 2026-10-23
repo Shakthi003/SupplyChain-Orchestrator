@@ -42,6 +42,11 @@ def money(x) -> str:
     return f"${x:,.2f}"
 
 
+def md(text) -> str:
+    """Escape '$' so Streamlit does not treat 'US$ ... US$' as LaTeX math."""
+    return str(text).replace("$", "\\$")
+
+
 # ---------------------------------------------------------------------------
 # Sidebar: pick an event
 # ---------------------------------------------------------------------------
@@ -63,7 +68,7 @@ with st.sidebar:
     labels = {e["event_id"]: f'{e["event_id"]} [{e["severity"]}, {e["status"]}]' for e in events}
     event_id = st.selectbox("Event", list(labels), format_func=labels.get)
     event = next(e for e in events if e["event_id"] == event_id)
-    st.write(event["description"])
+    st.write(md(event["description"]))
     st.caption(f'Type: {event["event_type"]}  |  Detected: {event["detected_at"]}')
 
     run = st.button("Run analysis", type="primary", width="stretch")
@@ -98,9 +103,9 @@ c3.metric("Coverage", f'{impact["coverage_days"]:.1f} days')
 c4.metric("Financial exposure", money(impact["total_exposure"]))
 
 if impact["has_shortage"]:
-    st.error(f'Projected shortage on {impact["shortage_date"]}. {impact.get("verdict", "")}')
+    st.error(md(f'Projected shortage on {impact["shortage_date"]}. {impact.get("verdict", "")}'))
 else:
-    st.success(f'A late shipment is not an actual shortage here. {impact.get("verdict", "")}')
+    st.success(md(f'A late shipment is not an actual shortage here. {impact.get("verdict", "")}'))
 
 tab_impact, tab_options, tab_graph, tab_evidence, tab_explain, tab_decide = st.tabs(
     ["Impact", "Recovery options", "Impact chain (graph)", "Evidence", "AI explanation", "Decision"]
@@ -128,19 +133,19 @@ with tab_impact:
 
 # --- Options --------------------------------------------------------------
 with tab_options:
-    st.write(f'Cost of doing nothing: **{money(planning["doing_nothing_cost"])}**  |  '
-             f'Recommended: **{planning["recommended_option_id"]}**')
+    st.write(md(f'Cost of doing nothing: **{money(planning["doing_nothing_cost"])}**  |  '
+                f'Recommended: **{planning["recommended_option_id"]}**'))
     for o in planning["options"]:
         rank = f'#{o["rank"]}' if o["rank"] > 0 else "unranked"
         star = " (recommended)" if o["option_id"] == planning["recommended_option_id"] else ""
-        with st.expander(f'{rank}  {o["option_id"]} - {o["title"]}{star}  |  '
-                         f'score {o["score"]:.1f}  |  cost {money(o["cost"])}  |  {o["status"]}',
+        with st.expander(md(f'{rank}  {o["option_id"]} - {o["title"]}{star}  |  '
+                            f'score {o["score"]:.1f}  |  cost {money(o["cost"])}  |  {o["status"]}'),
                          expanded=(o["rank"] == 1)):
-            st.write(o["description"])
-            st.write(f'**Feasibility:** {o["feasibility_note"]}')
-            st.write(f'**Cost basis:** {o["cost_note"]}')
+            st.write(md(o["description"]))
+            st.write(md(f'**Feasibility:** {o["feasibility_note"]}'))
+            st.write(md(f'**Cost basis:** {o["cost_note"]}'))
             if o["recommendation_reason"]:
-                st.write(f'**Why this rank:** {o["recommendation_reason"]}')
+                st.write(md(f'**Why this rank:** {o["recommendation_reason"]}'))
 
 # --- Graph ----------------------------------------------------------------
 with tab_graph:
@@ -170,7 +175,7 @@ with tab_explain:
     if explanation.startswith("[AI explanation unavailable"):
         st.warning("The AI service was unavailable; showing the fallback summary. "
                    "Re-run the analysis to retry.")
-    st.write(explanation)
+    st.write(md(explanation))
 
 # --- Decision -------------------------------------------------------------
 with tab_decide:
