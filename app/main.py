@@ -1,4 +1,4 @@
-﻿"""
+"""
 app/main.py -- Streamlit planner UI
 
 Talks ONLY to the FastAPI backend (never to the databases directly).
@@ -26,7 +26,7 @@ import streamlit as st
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 
-st.set_page_config(page_title="SupplyChain Orchestrator", page_icon="â—ˆ", layout="wide")
+st.set_page_config(page_title="SupplyChain Orchestrator", page_icon="\u25c8", layout="wide")
 
 
 # ---------------------------------------------------------------------------
@@ -144,13 +144,13 @@ def runway(imp: dict, detected) -> str:
     )
     gap = ""
     if stock_out and eta1 and stock_out < eta1:
-        gap = f" Â· {(eta1 - stock_out).days} days with no stock"
+        gap = f"{(eta1 - stock_out).days} days with no stock"
     return (
         '<div class="sc-card"><h4>Stock runway</h4>'
         f'<div class="sc-tl"><div class="sc-track">{segs}</div>{mk}</div>'
         '<div class="sc-legend"><span><em style="background:#34B58A"></em>Stock covers demand</span>'
         '<span><em style="background:#E5484D"></em>No stock, waiting for shipment</span>'
-        f'<span>{h(gap.strip(" Â·"))}</span></div></div>'
+        f'<span>{h(gap)}</span></div></div>'
     )
 
 
@@ -202,7 +202,7 @@ with st.sidebar:
     chosen = labels[st.selectbox("Event", list(labels), label_visibility="collapsed")]
     event_id = chosen["event_id"]
     st.write(md(chosen["description"]))
-    st.caption(f"Type: {chosen['event_type']} Â· Detected: {chosen['detected_at']}")
+    st.caption(f"Type: {chosen['event_type']} \u00b7 Detected: {chosen['detected_at']}")
     run = st.button("Run analysis", type="primary", width="stretch")
     st.caption("First run can take ~30-60 s")
     st.caption("Decision support on synthetic data. Nothing is executed.")
