@@ -490,7 +490,7 @@ def create_production_orders(session: Session) -> list[ProductionOrder]:
     session.commit()
     print(f"[OK] {len(production_orders)} production orders created.")
     print(f"     (PRD-301, PRD-302 are COVERED by 95 units available stock)")
-    print(f"     (PRD-306 is AT RISK -- stock exhausted before its start date)")
+    print(f"     (PRD-306 starts after stock would run out, but shipment SHP-441 lands first -> NOT at risk)")
     print(f"     (PRD-303 uses FGD-204 -- no PRT-104 needed -- should NOT be flagged)")
     return production_orders
 
@@ -538,7 +538,7 @@ def create_customer_orders(session: Session) -> list[CustomerOrder]:
 
     session.commit()
     print(f"[OK] {len(customer_orders)} customer orders created.")
-    print(f"     (CO-506 is at risk -- linked to PRD-306 which hits after stock runs out)")
+    print(f"     (CO-506 is linked to PRD-306, which the inbound shipment covers -> NOT at risk)")
     print(f"     (CO-501, CO-502 are SAFE -- their production orders are covered by 95 units)")
     return customer_orders
 
@@ -634,8 +634,8 @@ def main():
             print("  - SUP-005 delayed PO-441 (PRT-104) by 4 days")
             print("  - WH-01: 15 available, WH-02: 80 available = 95 total units")
             print("  - PRD-301 (50 units) and PRD-302 (15 units): COVERED by stock")
-            print("  - PRD-306 (80 units, 2 weeks out): AT RISK -- stock runs out first")
-            print("  - CO-506 (Acme $20,300) linked to PRD-306: AT RISK")
+            print("  - PRD-306 (80 units, 2 weeks out): SAFE -- SHP-441 (200 units) arrives first")
+            print("  - Expected result: late shipment, but NO shortage and no order at risk")
             print("  - SUP-003 (Delta Components) is alternate supplier for PRT-104 (OPT-D)")
             print("  - PRD-303, CO-503 should NOT be flagged (no PRT-104 dependency)")
             print("\n  Run the impact engine next:")
