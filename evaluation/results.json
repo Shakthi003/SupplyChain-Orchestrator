@@ -1,0 +1,166 @@
+{
+  "data": "synthetic",
+  "summary": {
+    "cases": 2,
+    "shortage_verdict_accuracy": 1.0,
+    "baseline_shortage_verdict_accuracy": 0.5,
+    "production_order_precision": 0.5,
+    "production_order_recall": 1.0,
+    "baseline_production_order_precision": 0.16666666666666666,
+    "baseline_production_order_recall": 1.0,
+    "customer_order_precision": 0.5,
+    "customer_order_recall": 1.0,
+    "exposure_exact_match_rate": 0.5,
+    "mean_baseline_exposure_error_usd": 35265.0,
+    "mean_stockout_date_error_days": 1.0,
+    "recommended_option_accuracy": 1.0,
+    "infeasible_option_accuracy": 1.0,
+    "retrieval_recall_at_1": 1.0,
+    "retrieval_recall_at_3": 1.0,
+    "evidence_coverage": 1.0,
+    "tool_error_rate": 0.0,
+    "mean_tool_latency_s": 3.7016666666666667
+  },
+  "cases": [
+    {
+      "event_id": "EVT-001",
+      "latency_s": {
+        "impact": 0.23,
+        "planning": 0.08,
+        "retrieval": 21.66
+      },
+      "tool_errors": 0,
+      "tool_calls": 3,
+      "production_orders": {
+        "precision": 0.0,
+        "recall": 1.0,
+        "f1": 0.0,
+        "fp": [
+          "PRD-306"
+        ],
+        "fn": []
+      },
+      "customer_orders": {
+        "precision": 0.0,
+        "recall": 1.0,
+        "f1": 0.0,
+        "fp": [
+          "CO-506"
+        ],
+        "fn": []
+      },
+      "shortage_correct": true,
+      "exposure_correct": false,
+      "stockout_date_error_days": null,
+      "stockout_date_within_tolerance": null,
+      "baseline": {
+        "shortage_correct": false,
+        "production_orders": {
+          "precision": 0.0,
+          "recall": 1.0,
+          "f1": 0.0,
+          "fp": [
+            "PRD-301",
+            "PRD-302",
+            "PRD-306"
+          ],
+          "fn": []
+        },
+        "customer_orders": {
+          "precision": 0.0,
+          "recall": 1.0,
+          "f1": 0.0,
+          "fp": [
+            "CO-501",
+            "CO-502",
+            "CO-506"
+          ],
+          "fn": []
+        },
+        "exposure": 42580.0,
+        "exposure_error": 42580.0
+      },
+      "recommended_correct": true,
+      "infeasible_correct": true,
+      "options_generated": 4,
+      "options_feasible": 4,
+      "retrieval": {
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "evidence_coverage": 1.0,
+        "ranked": [
+          "CONTRACT-SUP-005",
+          "CONTRACT-SUP-005",
+          "CONTRACT-SUP-005"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT-002",
+      "latency_s": {
+        "impact": 0.14,
+        "planning": 0.09,
+        "retrieval": 0.01
+      },
+      "tool_errors": 0,
+      "tool_calls": 3,
+      "production_orders": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fp": [],
+        "fn": []
+      },
+      "customer_orders": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fp": [],
+        "fn": []
+      },
+      "shortage_correct": true,
+      "exposure_correct": true,
+      "stockout_date_error_days": 1,
+      "stockout_date_within_tolerance": true,
+      "baseline": {
+        "shortage_correct": true,
+        "production_orders": {
+          "precision": 0.3333333333333333,
+          "recall": 1.0,
+          "f1": 0.5,
+          "fp": [
+            "PRD-307",
+            "PRD-308"
+          ],
+          "fn": []
+        },
+        "customer_orders": {
+          "precision": 0.3333333333333333,
+          "recall": 1.0,
+          "f1": 0.5,
+          "fp": [
+            "CO-507",
+            "CO-508"
+          ],
+          "fn": []
+        },
+        "exposure": 38700.0,
+        "exposure_error": 27950.0
+      },
+      "recommended_correct": true,
+      "infeasible_correct": true,
+      "options_generated": 3,
+      "options_feasible": 1,
+      "retrieval": {
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "evidence_coverage": 1.0,
+        "ranked": [
+          "CONTRACT-SUP-004",
+          "CONTRACT-SUP-004",
+          "CONTRACT-SUP-004"
+        ]
+      }
+    }
+  ]
+}
