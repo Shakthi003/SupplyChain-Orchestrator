@@ -157,9 +157,9 @@
 - [x] Add error handling and input validation (id format checks on all path/query ids, max lengths on decision fields, unhandled errors return a request id instead of a stack trace; 32 tests pass)
 - [x] Write documentation (docs/architecture.md with diagrams; README setup guide + limitations; design decisions in README and Progress.md)
 - [x] Run the full-agent evaluation once (--with-llm: 2 of 2 completed, all $ amounts grounded, 11.8 s mean). Hand-reading found 3 text problems, listed in Progress.md. Only 2 samples; automatic checks only
-- [ ] Planner: mark late-arriving options as PARTIAL (fully_closes_gap flag + residual_gap_days), e.g. Bosch on EVT-002 leaves about 3 days. Then update the EVT-002 label in cases.json by reasoning, not by copying the engine
-- [ ] AI prompt: forbid "prevents/bridges the shortage" when the gap is not fully closed; fix "0 units" and "Rank #0" wording
-- [ ] Show the stock-allocation assumption ("allocated in order of planned start date") in every result (UI + AI text)
+- [x] Planner: mark late-arriving options as PARTIAL (fully_closes_gap flag + residual_gap_days), e.g. Bosch on EVT-002 leaves about 3 days. Then update the EVT-002 label in cases.json by reasoning, not by copying the engine
+- [x] AI prompt: forbid "prevents/bridges the shortage" when the gap is not fully closed; fix "0 units" and "Rank #0" wording
+- [x] Show the stock-allocation assumption ("allocated in order of planned start date") in every result (UI + AI text)
 - [-] Dockerize the full stack -- Dockerfile + docker-compose.yml + scripts/docker_seed.py WRITTEN BUT NEVER BUILT OR RUN (Docker is not installed on the dev machine). Only checked: YAML parses, seed script compiles
 
 ---
@@ -179,9 +179,9 @@
 
 - [ ] User can SUBMIT a supplier delay event -- NOT MET: the user can only pick from events already in the database (no entry form). They can then see affected parts and downstream orders.
 - [x] System distinguishes a late shipment from an actual projected shortage (EVT-001 late/no shortage vs EVT-002 real shortage; checked against hand-derived labels)
-- [ ] Every risk result includes supporting records and stated assumptions -- PARTLY: Evidence tab shows retrieved contract/policy text and the caption states the graph/impact difference; assumptions (e.g. first-come-first-served stock allocation) are in docs, not shown per result in the UI. Planned fix: show the allocation assumption in every result (see Stage 8 items)
+- [ ] Every risk result includes supporting records and stated assumptions -- PARTLY: Evidence tab shows retrieved contract/policy text and the caption states the graph/impact difference; assumptions (e.g. first-come-first-served stock allocation) are in docs, not shown per result in the UI. The allocation assumption is now shown in the Recovery options tab and in the AI text (assumption list is still static, not per-event)
 - [x] At least 3 recovery options can be compared (EVT-001: 4 feasible; EVT-002: 3 generated, 1 feasible, 2 shown as infeasible with reasons)
-- [x] Chosen recommendation passes deterministic feasibility checks (submit_decision rejects non-feasible options; tested). Known gap: alternate-supplier option does not compare its arrival to the stock-out date (planned: mark as PARTIAL with residual gap days)
+- [x] Chosen recommendation passes deterministic feasibility checks (submit_decision rejects non-feasible options; tested). Known gap: alternate-supplier option does not compare its arrival to the stock-out date (now marked PARTIAL with residual gap days)
 - [x] User can approve or reject a proposed action and the decision is logged (audit log; verified in the browser)
 - [x] Repeatable evaluation suite compares system with a baseline (python -m evaluation.run_eval; only 2 cases, deterministic parts)
 - [ ] Project runs from documented setup instructions -- NOT VERIFIED: the steps are written from the path actually used, but never run on a clean machine; Docker files never built

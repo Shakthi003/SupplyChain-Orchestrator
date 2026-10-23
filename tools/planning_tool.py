@@ -25,6 +25,7 @@ from core.optimization.options import (
 from core.optimization.constraints import check_all_constraints
 from core.optimization.costs import calculate_all_costs, cost_of_doing_nothing
 from core.optimization.planner import score_options
+from core.assumptions import ASSUMPTIONS
 
 
 def run_recovery_planning_tool(event_id: str) -> dict:
@@ -169,6 +170,8 @@ def run_recovery_planning_tool(event_id: str) -> dict:
                     "score":                 opt.score,
                     "cost":                  opt.estimated_cost,
                     "status":                opt.status.value,
+                    "fully_closes_gap":      opt.fully_closes_gap,
+                    "residual_gap_days":     opt.residual_gap_days,
                     "description":           opt.description,
                     "feasibility_note":      opt.feasibility_notes[0] if opt.feasibility_notes else "",
                     "cost_note":             opt.cost_breakdown.get("note", ""),
@@ -186,6 +189,7 @@ def run_recovery_planning_tool(event_id: str) -> dict:
                 "total_options":          len(options),
                 "feasible_options":       sum(1 for o in options if o.status == OptionStatus.FEASIBLE),
                 "options":                options_out,
+                "assumptions":            ASSUMPTIONS,
                 "recommended_option_id":  recommended,
                 "error":                  None
             }

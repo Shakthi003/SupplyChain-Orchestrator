@@ -711,7 +711,14 @@ Lesson: the AI added no new wrong numbers. It repeats the planner's flaws. So th
 - Known weakness: an early low-value order can use up stock a later high-value order needs. Priority by order value or penalty would fix that, but it is a business rule nobody has validated.
 - Plan: print "Stock allocated in order of planned start date" as a visible assumption in each result (UI and AI text). This also closes the partial "every result includes assumptions" item.
 
-Status: both are agreed in principle and written down here. Neither is coded yet.
+**Status: BUILT (session 11).** What changed:
+- `check_alt_supplier` now compares arrival to the stock-out date, but only when a real shortage exists. Late arrival = feasible + `fully_closes_gap=False` + `residual_gap_days`. EVT-001 stays untouched because it has no real shortage.
+- `core/assumptions.py` holds the assumption list (rates are read from the cost code so they cannot drift). It is returned by the planning tool, shown in the UI under "Assumptions behind these numbers", and given to the AI.
+- The AI prompt: PARTIAL options may never be described as preventing or bridging; infeasible options are "not ranked" (no "Rank #0"); the briefing ends with an "Assumptions:" line. The transfer description no longer says "0 units" when nothing is needed.
+- Label for EVT-002 added to `cases.json` BEFORE running: OPT-D1 partial, about 2 days (Bosch lands Nov 6, first unmet day Nov 4). The engine says 2.6 days (it counts the stock-out from Nov 3 plus a fraction). Within the 1-day tolerance, and that gap is the same convention difference as before.
+- Tests: 4 new unit tests (`tests/unit/test_partial_feasibility.py`) plus a partial-option check in the evaluation test. Total 36 passing.
+- Re-ran `--with-llm`: 2 of 2 completed, $ amounts grounded. Read by hand: Bosch is now described as "PARTIAL... does NOT prevent it; about 2.6 days remain", no "Rank #0", no "0 units", assumption line present. A spot check on 2 cases, not proof.
+- Still open: the OPT-A line for EVT-001 says the stock "successfully bridges the gap", which is correct there (no shortage).
 
 ### Logging and validation
 
@@ -731,7 +738,7 @@ Wrote `Dockerfile`, `docker-compose.yml` and `scripts/docker_seed.py`. Docker De
 
 ### Still open
 
-- First-come-first-served stock allocation: decided to keep it and show it as an assumption (not coded yet)
-- The alternate supplier for EVT-002 arrives after the stock-out but is still called feasible: decided to mark it "partial" with a residual gap (not coded yet). The AI text is wrong on this point until then
+- First-come-first-served stock allocation: kept, and now shown as an assumption in the UI and the AI text. Still not validated by a domain expert
+- Late alternate supplier: now marked PARTIAL with residual days (done). Recommended-option ranking does not yet penalise a partial option versus a full one
 - No from-scratch install test, no Docker test, `--with-llm` run only once on 2 cases
 - Stage 1 leftovers (user stories) not written

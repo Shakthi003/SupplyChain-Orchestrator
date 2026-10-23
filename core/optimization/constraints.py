@@ -168,7 +168,8 @@ def check_expedite(
 def check_alt_supplier(
     option: RecoveryOption,
     shortage_date: Optional[datetime],
-    today: datetime
+    today: datetime,
+    nearest_shipment_eta: Optional[datetime] = None
 ) -> tuple[bool, str]:
     """
     Option D is feasible if:
@@ -192,9 +193,30 @@ def check_alt_supplier(
             f"{MAX_ALT_LEAD_DAYS} days for emergency sourcing."
         )
 
-    # Check 3: would it help? (arrives before too much damage)
+    # Check 3: does it arrive before stock runs out?
     arrival_date = today + timedelta(days=option.alt_supplier_lead_time)
     days_until_arrival = option.alt_supplier_lead_time
+
+    # A real shortage exists only if the nearest inbound shipment lands after the stock-out
+    # (or there is no inbound shipment). Without one, arrival timing is not a problem.
+    real_shortage = shortage_date is not None and (
+        nearest_shipment_eta is None or nearest_shipment_eta > shortage_date
+    )
+    if real_shortage and arrival_date > shortage_date:
+        residual = (arrival_date - shortage_date).total_seconds() / 86400
+        option.fully_closes_gap = False
+        option.residual_gap_days = round(residual, 1)
+        if nearest_shipment_eta is not None:
+            before = (nearest_shipment_eta - shortage_date).total_seconds() / 86400
+            shrink = f"shortage shortens from about {before:.1f} to about {residual:.1f} days"
+        else:
+            shrink = f"about {residual:.1f} days of shortage remain"
+        return True, (
+            f"PARTIAL: {option.alt_supplier_name} arrives {days_until_arrival} days from now "
+            f"(est. {arrival_date.strftime('%Y-%m-%d')}), after stock runs out "
+            f"({shortage_date.strftime('%Y-%m-%d')}); {shrink}. "
+            f"Reliability: {option.alt_supplier_reliability:.0%}. Does NOT fully prevent the shortage."
+        )
 
     return True, (
         f"{option.alt_supplier_name} can deliver in {days_until_arrival} days "
@@ -246,7 +268,9 @@ def check_all_constraints(
             passed, note = check_expedite(option, shortage_date, as_of_date)
 
         elif option.option_type == OptionType.ALT_SUPPLIER:
-            passed, note = check_alt_supplier(option, shortage_date, as_of_date)
+            passed, note = check_alt_supplier(
+                option, shortage_date, as_of_date, nearest_shipment_eta
+            )
 
         else:
             passed, note = False, "Unknown option type."

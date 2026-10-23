@@ -61,6 +61,7 @@ More detail, including the analysis sequence, is in [`docs/architecture.md`](doc
 | Stock-out date error | 1 day | n/a |
 | Recommended option correct | 100% | n/a |
 | Infeasible options identified | 100% | n/a |
+| Late (partial) options identified | 100% | n/a |
 | Document retrieval Recall@1 / @3 | 100% / 100% | n/a |
 | Tool error rate | 0% | n/a |
 
@@ -71,13 +72,13 @@ More detail, including the analysis sequence, is in [`docs/architecture.md`](doc
 - The evaluation found a **real bug** in my own engine: it ignored shipments that arrive before an order starts, so it falsely flagged an order on EVT-001 ($20,300 of false exposure). That is fixed, and a regression test now guards it.
 - The 1-day stock-out gap is a day-counting convention difference between the engine and the cross-check. I have not decided which convention is better.
 - The document check covers only the penalty-clause lookup (2 queries).
-- `--with-llm` was run once on the 2 cases: both agent runs completed with real Gemini text (not the fallback), every dollar figure matched the engine numbers, both named the recommended option and cited a source (mean 11.8 s). That is automatic checking only, on 2 samples. Reading the text by hand found two faults: (1) for EVT-002 the AI says OPT-D1 "bridges the gap and prevents the shortage", but Bosch arrives about Nov 6 and stock runs out Nov 3, so that claim is not supported; (2) for EVT-001 it says OPT-B1 transfers "0 units" and prints "Rank #0" for an infeasible option, both inherited from the planner output. The AI repeats the planner's flaws; it does not add new numbers.
+- `--with-llm` was run once on the 2 cases: both agent runs completed with real Gemini text (not the fallback), every dollar figure matched the engine numbers, both named the recommended option and cited a source (mean 11.8 s). That is automatic checking only, on 2 samples. Reading the text by hand found three faults (the AI said the late Bosch order "prevents the shortage", said a transfer moves "0 units", and printed "Rank #0"). All three came from the planner output, not from the AI inventing numbers. They were fixed in the planner and the prompt, and a second run read correctly: Bosch is described as PARTIAL (about 2.6 days of shortage remain) and the allocation assumption is stated. Still only 2 samples and automatic checks plus my own reading, so treat it as a spot check, not proof.
 
 ## Known limitations
 
 - **Synthetic, tiny data:** 5 suppliers, 20 parts, 2 scenarios. Nothing here was tested on real data.
 - **Stock allocation is a simplification:** when stock is short, the engine gives it to orders in order of planned start, so the latest-starting order is the one flagged. Real planners may prioritise by customer, margin or penalty. This rule has not been validated with anyone who plans for a living.
-- **Recovery options are simple:** the alternate-supplier check looks at reliability and lead time. It does not compare the alternate's arrival date against the stock-out date (for EVT-002 the alternate arrives about Nov 6, after the Nov 3 stock-out, and the option is still called feasible).
+- **Recovery options are simple:** the alternate-supplier check looks at reliability and lead time. An alternate supplier that arrives after the stock-out is kept as feasible but marked PARTIAL, with the number of days still short (EVT-002: Bosch lands about Nov 6, so roughly 2-3 days remain). Stock allocation is first-come-first-served by planned start date (order value is ignored). Both rules are shown in the app under "Assumptions behind these numbers" and passed to the AI.
 - **Contract clauses are synthetic and differ per supplier on purpose** (for example, the same 8-14 day delay costs 3% under SUP-004 and 10% under SUP-005). I suspected an inconsistency at one point and checked: it was two different suppliers, not an error.
 - **The LLM is a free-tier model that is sometimes overloaded.** When it fails, the UI shows a labeled fallback summary instead of an AI briefing. The model was switched once after repeated 503/504 errors. One successful run is not proof that failures are gone.
 - **The graph is a copy.** Neo4j does not update itself: re-run `scripts/load_graph.py` after the data changes.

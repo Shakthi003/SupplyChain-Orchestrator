@@ -98,6 +98,9 @@ class RecoveryOption:
     # --- Filled by constraints.py ---
     status: OptionStatus = OptionStatus.CANDIDATE
     feasibility_notes: list[str] = field(default_factory=list)
+    # False = feasible but arrives AFTER stock runs out (a shorter shortage, not no shortage).
+    fully_closes_gap: bool = True
+    residual_gap_days: float = 0.0    # days of shortage still left when fully_closes_gap is False
 
     # --- Filled by costs.py ---
     estimated_cost: float = 0.0
@@ -183,12 +186,19 @@ def generate_transfer_options(
 
         transferable = min(available, units_needed)
 
+        if transferable > 0:
+            what = f"Transfer {transferable:.0f} units of PRT-104 from "
+        else:
+            what = (
+                "No units are needed right now (no shortage), so nothing would move today. "
+                "Standby option: stock could be moved from "
+            )
         opt = RecoveryOption(
             option_id=f"OPT-B{idx}",
             option_type=OptionType.TRANSFER,
             title=f"Transfer Stock from {inv.warehouse_id}",
             description=(
-                f"Transfer {transferable:.0f} units of PRT-104 from "
+                f"{what}"
                 f"{inv.warehouse.name} ({inv.warehouse_id}) to the primary warehouse. "
                 f"Transit time estimated at 2 days. "
                 f"Source warehouse has {available:.0f} units available "

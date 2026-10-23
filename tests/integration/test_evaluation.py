@@ -28,6 +28,7 @@ def test_core_checks_match_labels(rows, event_id):
     assert r["production_orders"]["recall"] == 1.0      # never miss an at-risk order
     assert r["recommended_correct"]
     assert r["infeasible_correct"]
+    assert r["partial_correct"]
     assert r["retrieval"]["recall_at_3"] == 1.0
     assert r["retrieval"]["evidence_coverage"] == 1.0
     assert r["stockout_date_within_tolerance"] in (True, None)
