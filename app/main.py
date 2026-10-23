@@ -156,6 +156,9 @@ with tab_graph:
                    "The rest of the analysis does not depend on it.")
         st.caption(str(graph_err or graph.get("chain_text", ""))[:300])
     else:
+        st.caption("Shows every customer order that depends on this supplier through the BOM "
+                   "(structure only). The Impact tab shows only the orders actually at risk "
+                   "given current stock, so the totals differ by design.")
         st.code(chain["chain_text"], language=None)
         st.code(spare["spare_text"], language=None)
 
