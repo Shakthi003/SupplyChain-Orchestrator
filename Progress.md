@@ -742,3 +742,164 @@ Wrote `Dockerfile`, `docker-compose.yml` and `scripts/docker_seed.py`. Docker De
 - Late alternate supplier: now marked PARTIAL with residual days (done). Recommended-option ranking does not yet penalise a partial option versus a full one
 - No from-scratch install test, no Docker test, `--with-llm` run only once on 2 cases
 - Stage 1 leftovers (user stories) not written
+
+## Session 11 — Stage 9: Document Upload Feature {
+
+### What we did
+
+- Identified the core limitation: documents were hardcoded in `retrieval/documents.py` and users had no way to add their own contracts or policies
+- Built a full document upload pipeline: parse → validate (3 layers) → embed → index in ChromaDB at runtime
+- Added a **Document Library** page to the Streamlit UI (sidebar navigation)
+- Added 3 new API endpoints: `GET /documents`, `POST /documents/upload`, `DELETE /documents/{doc_id}`
+- Wrote 17 new unit tests for the upload pipeline (28 unit tests now pass offline in ~8s)
+
+### Files created
+
+- `retrieval/parser.py` — extracts plain text from PDF (pypdf), DOCX (python-docx), TXT
+- `retrieval/validator.py` — 3-layer validation: length check, keyword check, Gemini content check
+- `tests/unit/test_upload.py` — 17 unit tests covering parser + all 3 validation layers
+
+### Files modified
+
+- `retrieval/embedder.py` — added `embed_and_store()`, `delete_document()`, `list_indexed_documents()` for runtime use
+- `api/main.py` — added 3 document endpoints (`GET /documents`, `POST /documents/upload`, `DELETE /documents/{doc_id}`)
+- `app/main.py` — added Document Library page (sidebar navigation radio, upload form, indexed document list with delete)
+- `pyproject.toml` — added `pypdf>=4.0.0` and `python-docx>=1.1.0` dependencies
+
+### How the upload pipeline works (step by step)
+
+```
+User uploads file in UI (PDF / DOCX / TXT)
+    ↓
+POST /documents/upload  (FastAPI)
+    ↓
+Layer 1 — parser.py: extract text
+    → if no text / too short (< 100 chars) → REJECT with error
+    ↓
+Layer 2 — validator.py: keyword check for declared category
+    → e.g. "contract" expects: supplier, penalty, delivery, payment, clause
+    → if < 2 keywords found → WARN (never blocks)
+    ↓
+Layer 3 — validator.py: Gemini content check (same free-tier client as agent)
+    → "Is this a supply chain document? RELEVANT: YES/NO + REASON"
+    → if NO → WARN (never blocks)
+    → if Gemini unavailable (503) → skip gracefully, warn user
+    ↓
+embed_and_store() → chunk (15 lines, 3-line overlap) → embed → ChromaDB
+    → old chunks for same doc_id removed first (re-upload is safe)
+    ↓
+doc_id returned to UI: "USER-{SLUG}-{6HEX}"
+    ↓
+Next analysis run → retriever.py finds chunks from the uploaded doc
+→ Gemini cites it with [SOURCE: USER-...] in the explanation
+```
+
+### The 3-layer validation design
+
+| Layer | What it checks | Blocks upload? | Fallback |
+|---|---|---|---|
+| Layer 1 — text extraction | Can we get text? Is it ≥ 100 chars? | **Yes** — hard reject | None needed |
+| Layer 2 — keyword check | Does text match the declared category? | No — warning only | n/a (deterministic) |
+| Layer 3 — Gemini check | Is this supply chain content? | No — warning only | Skips gracefully on 503 |
+
+Layer 2 and 3 are advisory because the user may know their document is relevant even if it uses non-standard terminology. Only Layer 1 (can't extract text at all) is a hard block.
+
+### Why use the same Gemini client for Layer 3?
+
+Already using Gemini free tier in `agents/nodes.py` for explanations. Layer 3 reuses the exact same `genai.Client` setup — same API key, same retry config, same fallback pattern. One extra call per upload, well within the 1,500 requests/day free limit. No new cost, no new setup.
+
+### Key concept: doc_id for user uploads
+
+User-uploaded documents get IDs in the format `USER-{SLUG}-{6HEX}`, e.g. `USER-APEX-HYDRAULICS-CONTRACT-2024-A3F9B1`. The `USER-` prefix is what the UI uses to decide whether to show the Delete button (built-in documents cannot be deleted from the UI).
+
+### Known limitation added
+
+Uploaded documents are wiped if `retrieval/embedder.py --reset` is run. The reset deletes the entire ChromaDB collection and reloads only the built-in documents. Re-upload after a reset.
+
+### Test results
+
+```
+uv run pytest tests/unit/ -v
+28 passed in 8.02s
+```
+
+All 28 unit tests pass offline (no PostgreSQL, no ChromaDB, no Gemini needed).
+New tests cover: PDF/DOCX/TXT extraction, unsupported file types, empty files, all 3 validation layers, keyword matching per category, Gemini fallback when unavailable.
+
+}
+
+
+## Session 12 — Stage 10: New Disruption Event Creation {
+
+### What we did
+
+- Identified the core limitation: only 2 hardcoded events (EVT-001, EVT-002) — no way for a user to report a new supplier delay
+- Built a full event creation feature: supplier picker → shipment picker → delay details → new event in PostgreSQL
+- Added a **New Disruption** page to the Streamlit UI (sidebar now has 3 pages)
+- Added 3 new API endpoints: `GET /suppliers`, `GET /shipments`, `POST /events`
+- New events auto-generate their ID (EVT-003, EVT-004...) and immediately appear in the Disruption Analysis dropdown
+
+### Files modified
+
+- `api/schemas.py` — added `CreateEventRequest` Pydantic model (shipment_id, delay_days, delay_reason, severity)
+- `api/main.py` — added `GET /suppliers`, `GET /shipments`, `POST /events` endpoints
+- `app/main.py` — added **New Disruption** page (3-step form), sidebar navigation updated to 3 pages
+
+### How the new event creation works (step by step)
+
+```
+User opens "New Disruption" page
+    ↓
+Step 1 — GET /suppliers → supplier dropdown
+    ↓
+Step 2 — GET /shipments?supplier_id=SUP-XXX → shipment dropdown
+    (only IN_TRANSIT shipments shown, ones with existing open events flagged ⚠️)
+    ↓
+Step 3 — User enters: delay days, reason, severity
+    ↓
+POST /events (FastAPI)
+    ↓
+Validate: shipment exists, is IN_TRANSIT, no duplicate open event
+    ↓
+Update Shipment: delay_days, revised_eta = scheduled_date + delay_days, delay_reason
+    ↓
+Create DisruptionEvent row: auto-generated ID (EVT-003, EVT-004...), type=SUPPLIER_DELAY
+    ↓
+✅ Success message: "Switch to Disruption Analysis, select EVT-003, click Run analysis"
+    ↓
+Full analysis pipeline runs on the new event — impact, planning, graph, RAG, Gemini
+```
+
+### Key design decisions
+
+**Auto-generated event IDs:**
+Counts existing events in the DB and generates `EVT-{N+1:03d}`. Includes a uniqueness loop in case of gaps so IDs never collide.
+
+**Duplicate event prevention:**
+Before creating, the API checks if an OPEN event already exists for that shipment. If yes → 409 error. The UI also flags those shipments with ⚠️ and stops the form. This prevents two competing analyses for the same shipment.
+
+**Only IN_TRANSIT shipments shown:**
+The shipment dropdown filters to `status = IN_TRANSIT` only. Delivered or cancelled shipments cannot be reported as delayed.
+
+**Shipment revised_eta updated immediately:**
+When the event is created, `Shipment.revised_eta` is set to `scheduled_date + delay_days`. This is what the impact engine reads when calculating stock coverage — so the analysis on the new event is accurate immediately.
+
+**No new dependencies:**
+Uses the existing SQLAlchemy models (`DisruptionEvent`, `Shipment`, `PurchaseOrder`, `Supplier`), existing Pydantic pattern from `DecisionRequest`, and existing Streamlit UI patterns. Zero new packages.
+
+### What the user can now do
+
+Before: only 2 events, both synthetic, both hardcoded at data generation time.
+After: unlimited events — any supplier delay can be reported through the UI, creating a real analysable event in seconds.
+
+### Test results
+
+```
+uv run pytest tests/unit/ -q
+28 passed in 10.87s
+```
+
+All existing tests still pass. New endpoints verified via API import check (all routes present).
+
+}
+

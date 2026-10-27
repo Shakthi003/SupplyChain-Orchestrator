@@ -185,6 +185,249 @@ html("""
 """)
 
 # ---------------------------------------------------------------------------
+# Page selector — top of sidebar
+# ---------------------------------------------------------------------------
+
+with st.sidebar:
+    st.markdown("### Navigation")
+    page = st.radio("", ["Disruption Analysis", "New Disruption", "Document Library"], label_visibility="collapsed")
+
+# ===========================================================================
+# PAGE: New Disruption
+# ===========================================================================
+
+if page == "New Disruption":
+    html("""
+    <div class="sc-card">
+      <h4>Report a new disruption</h4>
+      <p style="color:var(--ink-muted)">
+        Use this form when a supplier notifies you of a shipment delay.
+        Selecting a shipment and entering the delay will create a new disruption
+        event that you can immediately analyse.
+      </p>
+    </div>
+    """)
+
+    # --- Step 1: pick a supplier ---
+    st.markdown("#### Step 1 — Select the delayed supplier")
+    suppliers, sup_err = api("GET", "/suppliers")
+    if sup_err:
+        st.error(sup_err)
+        st.stop()
+
+    sup_options = {f"{s['name']} ({s['id']})": s for s in suppliers}
+    chosen_sup_label = st.selectbox("Supplier", list(sup_options))
+    chosen_sup = sup_options[chosen_sup_label]
+
+    # --- Step 2: pick a shipment for that supplier ---
+    st.markdown("#### Step 2 — Select the delayed shipment")
+    shipments, shp_err = api("GET", f"/shipments?supplier_id={chosen_sup['id']}")
+    if shp_err:
+        st.error(shp_err)
+        st.stop()
+
+    if not shipments:
+        st.warning(f"No in-transit shipments found for {chosen_sup['name']}. "
+                   "All shipments may already have open events or may have been delivered.")
+        st.stop()
+
+    shp_options = {}
+    for s in shipments:
+        tag = " ⚠️ already has open event" if s["has_open_event"] else ""
+        label = (f"{s['id']} — {s['part_name']} ({s['part_id']}) "
+                 f"· {s['quantity']:.0f} units · due {s['scheduled_date']}{tag}")
+        shp_options[label] = s
+
+    chosen_shp_label = st.selectbox("Shipment", list(shp_options))
+    chosen_shp = shp_options[chosen_shp_label]
+
+    if chosen_shp["has_open_event"]:
+        st.error("This shipment already has an open disruption event. "
+                 "Resolve it before creating a new one.")
+        st.stop()
+
+    html(f'<div class="sc-card"><div class="sc-facts">'
+         + "".join(
+             f'<div class="sc-fact"><div class="k">{h(k)}</div><div class="v">{h(v)}</div></div>'
+             for k, v in [
+                 ("Shipment", chosen_shp["id"]),
+                 ("Part", f"{chosen_shp['part_name']} ({chosen_shp['part_id']})"),
+                 ("Quantity", f"{chosen_shp['quantity']:.0f} units"),
+                 ("Scheduled date", chosen_shp["scheduled_date"]),
+                 ("Current delay", f"{chosen_shp['delay_days']} days"),
+             ])
+         + '</div></div>')
+
+    # --- Step 3: enter delay details ---
+    st.markdown("#### Step 3 — Enter delay details")
+    with st.form("new_event_form"):
+        delay_days = st.number_input(
+            "Delay (days)", min_value=1, max_value=365, value=7, step=1,
+            help="How many days after the original scheduled date will the shipment now arrive?"
+        )
+        delay_reason = st.text_area(
+            "Reason for delay (required)",
+            placeholder="e.g. Port congestion at Shanghai. Vessel rescheduled to next available slot.",
+            height=100,
+        )
+        severity = st.selectbox(
+            "Severity",
+            ["high", "critical", "medium", "low"],
+            format_func=lambda s: {
+                "low":      "Low — covered by buffer stock",
+                "medium":   "Medium — some orders at risk",
+                "high":     "High — active shortage likely",
+                "critical": "Critical — customer deliveries will miss deadline",
+            }[s],
+        )
+        submit_event = st.form_submit_button("Create disruption event", type="primary")
+
+    if submit_event:
+        if not delay_reason.strip():
+            st.error("Please enter a reason for the delay.")
+        else:
+            with st.spinner("Creating event..."):
+                result, err = api("POST", "/events", json={
+                    "shipment_id":  chosen_shp["id"],
+                    "delay_days":   int(delay_days),
+                    "delay_reason": delay_reason.strip(),
+                    "severity":     severity,
+                })
+            if err:
+                st.error(f"Failed to create event: {err}")
+            else:
+                st.success(
+                    f"✅ Event **{result['event_id']}** created successfully! "
+                    f"Switch to **Disruption Analysis**, select **{result['event_id']}**, "
+                    f"and click **Run analysis**."
+                )
+                st.info(f"Description: {result['description']}")
+
+    st.stop()
+
+
+# ===========================================================================
+# PAGE: Document Library
+# ===========================================================================
+
+if page == "Document Library":
+    html("""
+    <div class="sc-card">
+      <h4>Document Library</h4>
+      <p style="color:var(--ink-muted)">
+        Upload supplier contracts, internal policies, past decisions, or runbooks.
+        Uploaded documents are immediately indexed and used by the AI explanation
+        in future analyses.
+      </p>
+    </div>
+    """)
+
+    # --- Upload form ---
+    st.markdown("#### Upload a new document")
+    with st.form("upload_form", clear_on_submit=True):
+        uploaded_file = st.file_uploader(
+            "Choose a file (PDF, DOCX, or TXT)",
+            type=["pdf", "docx", "txt"],
+        )
+        doc_title = st.text_input("Document title", placeholder="e.g. Apex Hydraulics Contract 2024")
+        doc_category = st.selectbox(
+            "Category",
+            ["contract", "policy", "past_decision", "runbook", "other"],
+            format_func=lambda c: {
+                "contract": "Supplier Contract",
+                "policy": "Internal Policy",
+                "past_decision": "Past Decision",
+                "runbook": "Response Runbook",
+                "other": "Other",
+            }[c],
+        )
+        doc_supplier = st.text_input(
+            "Supplier ID (optional)",
+            placeholder="e.g. SUP-006 — leave blank if not supplier-specific",
+        )
+        submit_upload = st.form_submit_button("Upload & Index", type="primary")
+
+    if submit_upload:
+        if not uploaded_file:
+            st.error("Please select a file to upload.")
+        elif not doc_title.strip():
+            st.error("Please enter a document title.")
+        else:
+            with st.spinner("Extracting text, validating content, and indexing..."):
+                import httpx as _httpx
+                supplier_val = doc_supplier.strip() or "none"
+                try:
+                    r = _httpx.post(
+                        f"{API_URL}/documents/upload",
+                        data={
+                            "title": doc_title.strip(),
+                            "category": doc_category,
+                            "supplier_id": supplier_val,
+                        },
+                        files={"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "application/octet-stream")},
+                        timeout=30,
+                    )
+                    if r.status_code >= 400:
+                        try:
+                            detail = r.json().get("detail", r.text)
+                        except Exception:
+                            detail = r.text
+                        st.error(f"Upload failed: {detail}")
+                    else:
+                        result = r.json()
+                        st.success(
+                            f"✅ **{result['title']}** indexed as `{result['doc_id']}` "
+                            f"({result['chunks_stored']} chunks stored)."
+                        )
+                        for w in result.get("warnings", []):
+                            st.warning(w)
+                        if result.get("gemini_verdict"):
+                            with st.expander("AI content check verdict"):
+                                st.text(result["gemini_verdict"])
+                except _httpx.HTTPError as e:
+                    st.error(f"Cannot reach the API: {e}")
+
+    st.divider()
+
+    # --- Current document index ---
+    st.markdown("#### Indexed documents")
+    docs_data, docs_err = api("GET", "/documents")
+    if docs_err:
+        st.error(docs_err)
+    elif not docs_data:
+        st.info("No documents indexed yet. Upload one above or run `uv run python retrieval/embedder.py`.")
+    else:
+        category_labels = {
+            "contract": "Supplier Contract",
+            "policy": "Internal Policy",
+            "past_decision": "Past Decision",
+            "runbook": "Runbook",
+            "other": "Other",
+        }
+        for doc in docs_data:
+            cat_label = category_labels.get(doc["category"], doc["category"])
+            sup_tag = f" · {doc['supplier_id']}" if doc.get("supplier_id") and doc["supplier_id"] != "none" else ""
+            is_user = doc["doc_id"].startswith("USER-")
+            with st.expander(f"{doc['title']}  —  {cat_label}{sup_tag}  ({doc['chunk_count']} chunks)"):
+                st.caption(f"ID: `{doc['doc_id']}`")
+                if is_user:
+                    if st.button(f"Delete {doc['doc_id']}", key=f"del_{doc['doc_id']}", type="secondary"):
+                        del_result, del_err = api("DELETE", f"/documents/{doc['doc_id']}")
+                        if del_err:
+                            st.error(del_err)
+                        else:
+                            st.success(f"Deleted {doc['doc_id']} ({del_result['chunks_removed']} chunks removed).")
+                            st.rerun()
+                else:
+                    st.caption("Built-in document — cannot be deleted from the UI.")
+
+    st.stop()
+
+# ===========================================================================
+# PAGE: Disruption Analysis (original content continues below)
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
 # Sidebar: pick an event, run the analysis
 # ---------------------------------------------------------------------------
 

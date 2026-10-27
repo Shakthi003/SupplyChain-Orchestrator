@@ -21,6 +21,7 @@ Pick a disruption event, click **Run analysis**, and get:
 - **Evidence:** contract clauses and policies retrieved from a document index
 - **AI explanation:** a written briefing that cites that evidence
 - **Decision:** approve or reject with a required name and rationale, recorded in an audit log
+- **Document Library:** upload your own supplier contracts, policies, or runbooks (PDF, DOCX, TXT) — indexed immediately and used by the AI in future analyses
 
 Two scenarios ship with the data:
 
@@ -45,6 +46,8 @@ flowchart LR
     T3 --> NEO[(Neo4j)]
     T4 --> CH[(ChromaDB)]
     API -->|approve / reject| AUD[(Audit log in PostgreSQL)]
+    UI -->|upload PDF/DOCX/TXT| API
+    API -->|validate + embed| CH
 ```
 
 More detail, including the analysis sequence, is in [`docs/architecture.md`](docs/architecture.md).
@@ -84,6 +87,8 @@ More detail, including the analysis sequence, is in [`docs/architecture.md`](doc
 - **The graph is a copy.** Neo4j does not update itself: re-run `scripts/load_graph.py` after the data changes.
 - **No authentication.** Anyone who can reach the API can record a decision. The reviewer name is whatever is typed.
 - **No forecasting or learning.** Consumption is a fixed schedule from open production orders. The `core/forecasting` and `core/rules` folders are empty placeholders.
+- **Uploaded documents are not persisted across ChromaDB resets.** If you run `retrieval/embedder.py --reset`, user-uploaded documents are wiped along with the built-in ones. Re-upload after a reset.
+- **Document upload validation is advisory.** Layer 2 (keyword check) and Layer 3 (Gemini content check) produce warnings, not hard rejections. A user can upload an irrelevant document and it will still be indexed.
 
 ## Setup (local, without Docker)
 
@@ -124,7 +129,12 @@ uv run streamlit run app/main.py       # UI at http://localhost:8501
 uv run pytest tests
 ```
 
-32 tests pass at the time of writing (about 2 minutes on my machine). They cover the API (with the LLM faked and the audit-log write captured, so the real log is never touched), input validation, request ids and log format, the metric functions, a regression check that `$` amounts render correctly in the UI, and the engine-vs-labels evaluation gate. The evaluation gate reads the real PostgreSQL and ChromaDB, so those must be running and seeded.
+**Unit tests only (offline, fast — no database needed):**
+```bash
+uv run pytest tests/unit/ -v
+```
+
+28 unit tests pass offline (~8 seconds). The full suite (unit + integration) requires PostgreSQL and ChromaDB running and seeded. Tests cover the API (LLM faked, audit-log write captured), input validation, request ids and log format, the metric functions, a `$` rendering regression check, the engine-vs-labels evaluation gate, and the document upload pipeline (parser, all 3 validation layers, Gemini fallback).
 
 ## Docker: written, not tested
 
@@ -139,7 +149,7 @@ agents/       LangGraph workflow (analysis) and the human decision step
 core/         Deterministic engines: impact_analysis/, optimization/, clock, config, logging
 tools/        Thin adapters the agent calls (impact, planning, graph, retrieval, audit)
 graph/        Neo4j loader and queries
-retrieval/    Synthetic documents, embedder, search
+retrieval/    Documents, embedder, search, parser, validator (upload pipeline)
 evaluation/   Labeled cases, metrics, baseline, runner
 scripts/      Data generation, scenario 2, graph loading, Docker seed
 tests/        Unit and integration tests
@@ -151,7 +161,8 @@ docs/         Architecture notes
 - **One "as of" date.** Every calculation uses the event's detection date, not the live clock. Early on, results drifted from day to day (12.5, then 11.1, then 10.5 days of coverage) because the code read "today". If a result depends on "now", it is not reproducible.
 - **Approval is outside the AI workflow.** The workflow ends with a recommendation. The decision endpoint recomputes the numbers on the server and validates the choice, so a browser cannot submit fake options or costs.
 - **The what-if simulator was deliberately dropped.** It was scoped out to keep the project focused.
+- **Document upload validation is layered.** Layer 1 (text extraction) is a hard gate. Layers 2 (keyword check) and 3 (Gemini content check) are advisory — they warn but never block, because the user may know their document is relevant even if it uses non-standard terminology. Gemini uses the same free-tier client already in the agent and falls back gracefully on 503s.
 
 ## Tech stack
 
-Python, FastAPI, Streamlit, PostgreSQL, Neo4j, ChromaDB (sentence-transformers embeddings), LangGraph, Gemini, pytest.
+Python, FastAPI, Streamlit, PostgreSQL, Neo4j, ChromaDB (sentence-transformers embeddings), LangGraph, Gemini, pypdf, python-docx, pytest.

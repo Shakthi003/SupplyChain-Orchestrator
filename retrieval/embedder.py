@@ -275,6 +275,147 @@ def verify_collection():
 # ENTRY POINT
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# DYNAMIC EMBED — add a single document at runtime (used by the upload API)
+# ---------------------------------------------------------------------------
+
+def embed_and_store(
+    doc_id: str,
+    title: str,
+    category: str,
+    content: str,
+    supplier_id: str = "none",
+) -> int:
+    """
+    Embed a single document and add its chunks to the existing ChromaDB collection.
+    Used when a user uploads a document through the UI at runtime.
+
+    Args:
+        doc_id:      Unique stable ID for this document (e.g. "CONTRACT-SUP-006")
+        title:       Human-readable title
+        category:    "contract" | "policy" | "past_decision" | "runbook" | "other"
+        content:     Plain text content of the document
+        supplier_id: Optional supplier ID to link this document to (e.g. "SUP-006")
+
+    Returns:
+        Number of chunks stored.
+
+    Raises:
+        RuntimeError if the collection is not initialised (run embedder.py first).
+    """
+    from retrieval.documents import Document
+
+    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
+    )
+
+    try:
+        collection = client.get_collection(
+            name=COLLECTION_NAME,
+            embedding_function=embed_fn
+        )
+    except Exception:
+        raise RuntimeError(
+            f"ChromaDB collection '{COLLECTION_NAME}' not found. "
+            f"Run: uv run python retrieval/embedder.py"
+        )
+
+    # Remove any existing chunks for this doc_id so re-uploads don't duplicate
+    try:
+        existing = collection.get(where={"doc_id": {"$eq": doc_id}})
+        if existing["ids"]:
+            collection.delete(ids=existing["ids"])
+    except Exception:
+        pass  # collection may not support where-get on first insert
+
+    doc = Document(
+        doc_id=doc_id,
+        title=title,
+        category=category,
+        supplier_id=supplier_id if supplier_id != "none" else None,
+        content=content,
+    )
+    chunks = chunk_document(doc)
+
+    if not chunks:
+        return 0
+
+    collection.add(
+        ids=[c["chunk_id"] for c in chunks],
+        documents=[c["text"] for c in chunks],
+        metadatas=[c["metadata"] for c in chunks],
+    )
+    return len(chunks)
+
+
+def delete_document(doc_id: str) -> int:
+    """
+    Remove all chunks for a given doc_id from ChromaDB.
+
+    Returns:
+        Number of chunks deleted.
+    """
+    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
+    )
+
+    try:
+        collection = client.get_collection(
+            name=COLLECTION_NAME,
+            embedding_function=embed_fn
+        )
+    except Exception:
+        return 0
+
+    existing = collection.get(where={"doc_id": {"$eq": doc_id}})
+    if not existing["ids"]:
+        return 0
+
+    collection.delete(ids=existing["ids"])
+    return len(existing["ids"])
+
+
+def list_indexed_documents() -> list[dict]:
+    """
+    Return a deduplicated list of all documents currently in ChromaDB.
+    Each entry: { doc_id, title, category, supplier_id, chunk_count }
+    """
+    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
+    )
+
+    try:
+        collection = client.get_collection(
+            name=COLLECTION_NAME,
+            embedding_function=embed_fn
+        )
+    except Exception:
+        return []
+
+    all_items = collection.get(include=["metadatas"])
+    seen: dict[str, dict] = {}
+    for meta in all_items["metadatas"]:
+        doc_id = meta.get("doc_id", "")
+        if doc_id not in seen:
+            seen[doc_id] = {
+                "doc_id":      doc_id,
+                "title":       meta.get("title", ""),
+                "category":    meta.get("category", ""),
+                "supplier_id": meta.get("supplier_id", "none"),
+                "chunk_count": 0,
+            }
+        seen[doc_id]["chunk_count"] += 1
+
+    return sorted(seen.values(), key=lambda d: d["doc_id"])
+
+
+# ---------------------------------------------------------------------------
+# ENTRY POINT
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="SupplyChain Orchestrator -- ChromaDB Document Embedder"
